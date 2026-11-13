@@ -1,8 +1,19 @@
 name: Dodanie nowej uczelni USOS
 description: Poproś o wsparcie dla kolejnej uczelni korzystającej z systemu USOS
 title: "[UCZELNIA] "
+type: Task
 labels: ["university-request", "usos-api"]
 body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priorytet (Project Field - Priority)
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
   - type: input
     id: uni_name
     attributes:

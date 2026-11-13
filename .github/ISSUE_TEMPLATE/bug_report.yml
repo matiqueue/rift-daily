@@ -1,6 +1,7 @@
 name: Zgłoszenie błędu (Bug Report)
 description: Zgłoś problem z aplikacją Rift Daily (iOS, Android lub strona WWW)
 title: "[BUG] "
+type: Bug
 labels: ["bug"]
 body:
   - type: markdown
@@ -10,11 +11,35 @@ body:
   - type: dropdown
     id: platform
     attributes:
-      label: Platforma
+      label: Platforma (Project Field - Platform)
       options:
+        - iOS & Android
         - iOS (iPhone / iPad)
         - Android (APK)
+        - USOS API
         - Strona WWW (rift-daily.vercel.app)
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priorytet (Project Field - Priority)
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Obszar (Project Field - Area)
+      options:
+        - Offline & Storage
+        - Notifications
+        - Widgets
+        - UI/UX
+        - Universities
     validations:
       required: true
   - type: input

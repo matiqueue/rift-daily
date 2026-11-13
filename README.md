@@ -155,18 +155,18 @@ npx eas-cli@latest build --platform android --profile preview
 
 ---
 
-## ⚡ Automatyczne budowanie APK w GitHub Actions (CI/CD)
+## ⚡ Automatyczne budowanie APK i CI/CD (GitHub Actions)
 
-Projekt posiada w pełni zautomatyzowany potok CI/CD zdefiniowany w [`.github/workflows/android-release.yml`](./.github/workflows/android-release.yml):
+Projekt posiada w pełni zautomatyzowany potok CI/CD w katalogu [`.github/workflows/`](./.github/workflows/):
 
-- **Kiedy się uruchamia?**
-  - **Automatycznie**: Przy wypchnięciu nowego taga wersji (np. `git tag v1.0.0 && git push origin v1.0.0`).
-  - **Ręcznie na żądanie**: W zakładce **Actions** na GitHubie przyciskiem **„Run workflow”** (workflow_dispatch).
-- **Jak działa?**
-  1. Uruchamia czystą maszynę wirtualną `ubuntu-latest`.
-  2. Konfiguruje środowisko Java 17 i Node.js 20.
-  3. Wykonuje `npx expo prebuild --platform android` i kompiluje `./gradlew assembleRelease`.
-  4. Tworzy lub aktualizuje nowe **GitHub Release** i dołącza do niego gotowy plik `RiftDaily.apk`.
+- **CI (`ci.yml`)**: Uruchamia się na każdym pushu oraz Pull Requeście do gałęzi `dev` i `main` (sprawdza TypeScript `npx tsc --noEmit`, konfigurację Expo oraz build strony `website/`).
+- **Release (`android-release.yml`)**:
+  - **Automatycznie na produkcji (`main`)**: Po scaleniu zmian na `main` (z nową wersją w `package.json`) lub wypchnięciu taga `v*` automatycznie generuje podpisany build `RiftDaily.apk` i publikuje nowe **GitHub Release**.
+  - **Ręcznie na żądanie**: W zakładce **Actions** na GitHubie przyciskiem **„Run workflow”** (`workflow_dispatch`).
+- **Jak działa build APK?**
+  1. Uruchamia czystą maszynę wirtualną `ubuntu-latest` z JDK 17 i Node.js 20.
+  2. Wykonuje `npx expo prebuild --platform android` i kompiluje `./gradlew assembleRelease`.
+  3. Publikuje **GitHub Release** z gotowym plikiem `RiftDaily.apk`.
 
 Dzięki temu użytkownicy mają 100% gwarancji, że instalowany plik APK pochodzi wprost z publicznego, zweryfikowanego kodu źródłowego.
 
@@ -250,14 +250,20 @@ rift-daily/
 
 ---
 
-## 🤝 Współtworzenie (Contributing)
+## 🤝 Współtworzenie (Contributing & Git Flow)
 
-Projekt ma otwarty kod źródłowy i jest tworzony przez studentów dla studentów! Jeśli chcesz dodać obsługę nowego modułu USOS lub ulepszyć aplikację:
+Projekt ma otwarty kod źródłowy i jest tworzony przez studentów dla studentów! Przed rozpoczęciem pracy zapoznaj się z [CONTRIBUTING.md](./CONTRIBUTING.md), [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) oraz [SECURITY.md](./SECURITY.md).
 
-1. Zrób **Fork** repozytorium
-2. Utwórz nową gałąź (`git checkout -b feat/nowa-funkcja`)
-3. Zatwierdź zmiany (`git commit -m 'feat: dodano nową funkcję'`)
-4. Wypchnij gałąź (`git push origin feat/nowa-funkcja`) i otwórz **Pull Request**
+### Przepływ gałęzi (`dev` -> `main`)
+- **`dev`** to główna gałąź developerska (chroniona CI). Wszystkie nowe funkcje, poprawki i **Pull Requesty kierujemy do `dev`**.
+- **`main`** to chroniona gałąź produkcyjna (wymaga Code Review + zielonego CI). Scalenie `dev` -> `main` z podbitą wersją w `package.json` / `app.json` automatycznie buduje i publikuje nowe wydanie (`RiftDaily.apk`).
+
+### Jak dodać zmianę krok po kroku
+1. Zrób **Fork** lub utwórz gałąź z `dev` (np. `git checkout dev && git checkout -b feat/nowa-funkcja`).
+2. Wprowadź zmiany i sprawdź kompilację: `./node_modules/.bin/tsc --noEmit`.
+3. Zatwierdź zmiany (`git commit -m 'feat: dodano nową funkcję'`) i wypchnij gałąź.
+4. Otwórz **Pull Request do gałęzi `dev`**, powiąż go z odpowiednim Issue (`Closes #...`) i uzupełnij pola projektu ([Rift Daily Roadmap](https://github.com/users/matiqueue/projects/5)).
+5. Masz pytanie lub pomysł? Zajrzyj do **[GitHub Discussions](https://github.com/matiqueue/rift-daily/discussions)** lub utwórz zgłoszenie z gotowego szablonu w zakładce **Issues**.
 
 ---
 
