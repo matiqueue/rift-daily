@@ -4,10 +4,6 @@
 
 <br />
 
-<img src="./docs/assets/icon.png" alt="Rift Daily Icon" width="108" height="108" style="border-radius: 24px;" />
-
-# Rift Daily
-
 ### Nowoczesny, superszybki mobilny **e-Dziennik Studencki USOS** na iOS i Androida
 
 [![License: Non-Commercial Free](https://img.shields.io/badge/License-Non--Commercial_100%25_Free-10B981.svg?style=for-the-badge)](./LICENSE)
@@ -20,7 +16,7 @@
   <b>Rift Daily</b> to zaprojektowany od podstaw kliencki e-dziennik akademicki w estetyce <b>Linear / Vercel Bento UI</b>, łączący się bezpośrednio z oficjalnym serwerem <b>USOS API (OAuth 1.0a)</b> polskich uczelni wyższych (m.in. <b>UKEN Kraków, UJ, AGH, PK, UEK, UW, PW, UAM, PWr, UWr, UMK, UŚ, PG, PŁ, KUL, SGH</b> i ponad 80 innych).
 </p>
 
-[**⭐ Jeśli aplikacja Ci się podoba — zostaw gwiazdkę (Star) na GitHubie!**](https://github.com/matiqueue/rift-daily/stargazers)
+[**⭐ Jeśli aplikacja Ci się podoba, to zostaw gwiazdkę (Star) na GitHubie!**](https://github.com/matiqueue/rift-daily/stargazers)
 
 </div>
 
@@ -216,7 +212,7 @@ Projekt ma otwarty kod źródłowy i jest tworzony przez studentów dla student�
 
 ---
 
-## 📄 Licencja (100% Darmowe — Zakaz Komercjalizacji)
+## 📄 Licencja (100% Darmowe -> Zakaz Komercjalizacji)
 
 Ten projekt jest udostępniany na licencji **Rift Daily Non-Commercial Open Source License** — pełną treść znajdziesz w pliku [LICENSE](./LICENSE).
 
