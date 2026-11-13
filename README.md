@@ -172,7 +172,7 @@ Dzięki temu użytkownicy mają 100% gwarancji, że instalowany plik APK pochodz
 
 ---
 
-## 🌐 Strona internetowa (Landing Page — Vite + Vercel)
+## 🌐 Strona internetowa (Landing Page: Vite + Vercel)
 
 W katalogu [`website/`](./website/) znajduje się dedykowana, ultralekka strona internetowa projektu zbudowana przy użyciu **Vite + React 19 + TypeScript + Tailwind CSS**.
 
@@ -263,7 +263,7 @@ Projekt ma otwarty kod źródłowy i jest tworzony przez studentów dla student�
 
 ## 📄 Licencja (100% Darmowe -> Zakaz Komercjalizacji)
 
-Ten projekt jest udostępniany na licencji **Rift Daily Non-Commercial Open Source License** — pełną treść znajdziesz w pliku [LICENSE](./LICENSE).
+Ten projekt jest udostępniany na licencji **Rift Daily Non-Commercial Open Source License** (pełną treść znajdziesz w pliku [LICENSE](./LICENSE)).
 
 - **100% Darmowe dla studentów**: Możesz dowolnie pobierać, uruchamiać, modyfikować i rozwijać aplikację w celach osobistych, akademickich i edukacyjnych.
 - **Bezwzględny zakaz spieniężania (No Monetization / Non-Commercial)**: Zabrania się sprzedaży aplikacji lub jej części, wprowadzania płatnych subskrypcji (paywalli), mikropłatności, reklam zarobkowych oraz wykorzystywania kodu w produktach komercyjnych. Aplikacja oraz wszelkie jej forki muszą pozostać **całkowicie darmowe**.

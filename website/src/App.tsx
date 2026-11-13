@@ -523,7 +523,7 @@ export default function App() {
               Czy aplikacja widzi moje hasło do USOSa?
             </h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              <b>Absolutnie nie.</b> Logowanie odbywa się przez oficjalny mechanizm autoryzacji OAuth 1.0a na stronie Twojej uczelni. Aplikacja nigdy nie ma dostępu do Twojego hasła — otrzymuje jedynie zaszyfrowany token sesji, przechowywany lokalnie na Twoim urządzeniu.
+              <b>Absolutnie nie.</b> Logowanie odbywa się przez oficjalny mechanizm autoryzacji OAuth 1.0a na stronie Twojej uczelni. Aplikacja nigdy nie ma dostępu do Twojego hasła; otrzymuje jedynie zaszyfrowany token sesji przechowywany lokalnie na Twoim urządzeniu.
             </p>
           </div>
 
@@ -543,7 +543,7 @@ export default function App() {
               Jakie uczelnie są wspierane?
             </h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Rift Daily wspiera każdą polską uczelnię wyższą posiadającą oficjalne USOS API — w tym m.in. UKEN Kraków, UJ, UW, PW, AGH, PK, UEK, UAM, PWr, UWr, UMK, UŚ, SGH, KUL i ponad 80 innych.
+              Rift Daily wspiera każdą polską uczelnię wyższą posiadającą oficjalne USOS API, w tym m.in. UKEN Kraków, UJ, UW, PW, AGH, PK, UEK, UAM, PWr, UWr, UMK, UŚ, SGH, KUL i ponad 80 innych.
             </p>
           </div>
         </div>

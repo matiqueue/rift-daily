@@ -1,4 +1,4 @@
-# Rift Daily — Oficjalna Strona WWW (Landing Page)
+# Rift Daily: Oficjalna Strona WWW (Landing Page)
 
 Nowoczesna, lekka strona informacyjna i landing page projektu **Rift Daily** stworzona w oparciu o **Vite + React 19 + TypeScript + Tailwind CSS**.
 
@@ -11,7 +11,7 @@ Nowoczesna, lekka strona informacyjna i landing page projektu **Rift Daily** stw
    website
    ```
 4. Framework zostanie automatycznie wykryty jako **Vite**.
-5. Kliknij **Deploy** — strona uruchomi się pod Twoją domeną (np. `riftdaily.vercel.app`)!
+5. Kliknij **Deploy**, a strona uruchomi się pod Twoją domeną (np. `riftdaily.vercel.app`)!
 
 ## 💻 Uruchomienie lokalne
 
