@@ -1,0 +1,24 @@
+name: Dodanie nowej uczelni USOS
+description: Poproś o wsparcie dla kolejnej uczelni korzystającej z systemu USOS
+title: "[UCZELNIA] "
+labels: ["university-request", "usos-api"]
+body:
+  - type: input
+    id: uni_name
+    attributes:
+      label: Pełna nazwa uczelni
+      placeholder: "np. Politechnika Krakowska"
+    validations:
+      required: true
+  - type: input
+    id: usos_url
+    attributes:
+      label: Adres USOSweb / USOS API
+      placeholder: "https://usosweb.pk.edu.pl/"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Dodatkowe informacje
+      description: Czy uczelnia udostępnia publiczne USOS API (`services/apisrv/installation`)?

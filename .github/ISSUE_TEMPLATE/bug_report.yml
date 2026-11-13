@@ -1,0 +1,51 @@
+name: Zgłoszenie błędu (Bug Report)
+description: Zgłoś problem z aplikacją Rift Daily (iOS, Android lub strona WWW)
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dziękujemy za zgłoszenie błędu! Podaj jak najwięcej szczegółów, abyśmy mogli szybko go naprawić.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platforma
+      options:
+        - iOS (iPhone / iPad)
+        - Android (APK)
+        - Strona WWW (rift-daily.vercel.app)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Wersja aplikacji i systemu
+      description: Np. Rift Daily v1.1.0, iOS 18.1 / Android 15
+      placeholder: "v1.1.0 / iOS 18.1"
+    validations:
+      required: true
+  - type: input
+    id: university
+    attributes:
+      label: Uczelnia USOS
+      placeholder: "np. UKEN Kraków / UJ / Politechnika Warszawska"
+  - type: textarea
+    id: description
+    attributes:
+      label: Opis błędu
+      description: Co się stało, a co powinno się wydarzyć?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Kroki do odtworzenia
+      placeholder: |
+        1. Otwórz zakładkę Plan zajęć
+        2. Przełącz tydzień...
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Zrzuty ekranu (opcjonalnie)
+      description: Przeciągnij i upuść zrzuty ekranu tutaj.

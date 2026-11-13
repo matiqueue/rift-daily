@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Dyskusje i pytania (GitHub Discussions)
+    url: https://github.com/matiqueue/rift-daily/discussions
+    about: Zadaj pytanie, podziel się opinią lub porozmawiaj o rozwoju Rift Daily
+  - name: Strona pobierania i instrukcja (iOS & Android)
+    url: https://rift-daily.vercel.app
+    about: Pobierz najnowsze APK na Androida lub zobacz poradnik instalacji na iOS

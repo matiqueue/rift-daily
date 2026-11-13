@@ -1,0 +1,33 @@
+name: Propozycja funkcji (Feature Request)
+description: Zaproponuj nową funkcję lub ulepszenie UI/UX w Rift Daily
+title: "[FEAT] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Obszar aplikacji
+      options:
+        - Ekran główny (Dashboard)
+        - Plan zajęć / Harmonogram
+        - Oceny i Średnia / Kalkulator ECTS
+        - Kadra akademicka i wyszukiwarka
+        - Powiadomienia i Widgety
+        - Strona WWW / Pobieranie
+        - Inne
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Jaki problem rozwiązuje ta funkcja?
+      description: Opisz krótko, czego brakuje lub co warto poprawić.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proponowane rozwiązanie
+      description: Jak dokładnie powinno to działać lub wyglądać?
+    validations:
+      required: true
