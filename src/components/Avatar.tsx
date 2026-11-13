@@ -74,7 +74,7 @@ export function Avatar({
           <Image
             source={{ uri: uri! }}
             style={{ width: size, height: size, borderRadius }}
-            contentFit={variant === 'student' ? 'contain' : 'cover'}
+            contentFit="cover"
             contentPosition={variant === 'student' ? 'center' : 'top'}
             transition={220}
             cachePolicy="memory-disk"

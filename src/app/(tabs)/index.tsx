@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
+  Keyboard,
   Platform,
   Pressable,
   RefreshControl,
@@ -40,6 +41,10 @@ export default function DashboardScreen() {
   const securityEnabled = useUsosStore((s) => s.securityEnabled);
 
   const [globalSearch, setGlobalSearch] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchCategory, setSearchCategory] = useState<
+    'all' | 'teachers' | 'classes' | 'courses' | 'grades'
+  >('all');
 
   const weightedGpa = useMemo(() => {
     let weightedSum = 0;
@@ -83,7 +88,18 @@ export default function DashboardScreen() {
 
   const nextActivity = nextClassInfo?.activity || scheduleRows[0] || null;
   const recentGrades = useMemo(() => grades.slice(0, 5), [grades]);
-  const myTeachers = useMemo(() => staff.slice(0, 8), [staff]);
+  const myTeachers = useMemo(
+    () =>
+      [...staff]
+        .sort((a, b) => {
+          const aHas = Boolean(a.photo_url && a.photo_url.startsWith('http'));
+          const bHas = Boolean(b.photo_url && b.photo_url.startsWith('http'));
+          if (aHas !== bHas) return Number(bHas) - Number(aHas);
+          return a.name.localeCompare(b.name, 'pl');
+        })
+        .slice(0, 8),
+    [staff]
+  );
 
   const toggleLightDark = () => {
     if (Platform.OS === 'ios') {
@@ -147,52 +163,105 @@ export default function DashboardScreen() {
     [theme]
   );
 
+  const sortedAllStaff = useMemo(
+    () =>
+      [...staff].sort((a, b) => {
+        const aHas = Boolean(a.photo_url && a.photo_url.startsWith('http'));
+        const bHas = Boolean(b.photo_url && b.photo_url.startsWith('http'));
+        if (aHas !== bHas) return Number(bHas) - Number(aHas);
+        return a.name.localeCompare(b.name, 'pl');
+      }),
+    [staff]
+  );
+
   const searchResults = useMemo(() => {
     const q = globalSearch.trim().toLowerCase();
-    if (!q) return null;
+    if (!q && !isSearchOpen) return null;
 
-    const matchedCourses = courses
-      .filter(
-        (c) =>
-          c.course_name.pl.toLowerCase().includes(q) ||
-          c.course_id.toLowerCase().includes(q) ||
-          c.coordinator.toLowerCase().includes(q)
-      )
-      .slice(0, 4);
+    const matchedCourses =
+      searchCategory === 'all' || searchCategory === 'courses'
+        ? (q
+            ? courses.filter(
+                (c) =>
+                  c.course_name.pl.toLowerCase().includes(q) ||
+                  c.course_id.toLowerCase().includes(q) ||
+                  c.coordinator.toLowerCase().includes(q)
+              )
+            : courses
+          ).slice(0, 6)
+        : [];
 
-    const matchedTeachers = staff
-      .filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.titles.toLowerCase().includes(q) ||
-          s.room.toLowerCase().includes(q) ||
-          (s.courses_taught || []).some((ct) => ct.toLowerCase().includes(q))
-      )
-      .slice(0, 4);
+    const matchedTeachers =
+      searchCategory === 'all' || searchCategory === 'teachers'
+        ? (q
+            ? sortedAllStaff.filter(
+                (s) =>
+                  s.name.toLowerCase().includes(q) ||
+                  s.titles.toLowerCase().includes(q) ||
+                  s.room.toLowerCase().includes(q) ||
+                  (s.email || '').toLowerCase().includes(q) ||
+                  (s.courses_taught || []).some((ct) => ct.toLowerCase().includes(q))
+              )
+            : sortedAllStaff
+          ).slice(0, 6)
+        : [];
 
-    const matchedGrades = grades
-      .filter(
-        (g) =>
-          g.course_name.pl.toLowerCase().includes(q) ||
-          g.author_name.toLowerCase().includes(q) ||
-          g.value_symbol.toLowerCase().includes(q)
-      )
-      .slice(0, 3);
+    const matchedClasses =
+      searchCategory === 'all' || searchCategory === 'classes'
+        ? (q
+            ? timetable.filter(
+                (t) =>
+                  (t.course_name.pl || '').toLowerCase().includes(q) ||
+                  (t.room_number || '').toLowerCase().includes(q) ||
+                  (t.lecturer_name || '').toLowerCase().includes(q)
+              )
+            : scheduleRows
+          ).slice(0, 6)
+        : [];
 
-    const matchedModules = quickModules.filter((m) => m.label.toLowerCase().includes(q));
+    const matchedGrades =
+      searchCategory === 'all' || searchCategory === 'grades'
+        ? (q
+            ? grades.filter(
+                (g) =>
+                  g.course_name.pl.toLowerCase().includes(q) ||
+                  g.author_name.toLowerCase().includes(q) ||
+                  g.value_symbol.toLowerCase().includes(q)
+              )
+            : grades
+          ).slice(0, 5)
+        : [];
+
+    const matchedModules =
+      searchCategory === 'all' && q
+        ? quickModules.filter((m) => m.label.toLowerCase().includes(q))
+        : [];
 
     return {
+      hasQuery: q.length > 0,
       courses: matchedCourses,
       teachers: matchedTeachers,
+      classes: matchedClasses,
       grades: matchedGrades,
       modules: matchedModules,
       total:
         matchedCourses.length +
         matchedTeachers.length +
+        matchedClasses.length +
         matchedGrades.length +
         matchedModules.length,
     };
-  }, [globalSearch, courses, staff, grades, quickModules]);
+  }, [
+    globalSearch,
+    isSearchOpen,
+    searchCategory,
+    courses,
+    sortedAllStaff,
+    timetable,
+    scheduleRows,
+    grades,
+    quickModules,
+  ]);
 
   const unpaidPayments = useMemo(
     () => payments.filter((p) => p.status === 'unpaid' && p.amount > 0),
@@ -220,131 +289,307 @@ export default function DashboardScreen() {
               styles.topSearchBar,
               {
                 backgroundColor: theme.cardElevated,
-                borderColor: globalSearch
-                  ? theme.accent
-                  : theme.isDark
-                    ? 'rgba(255,255,255,0.16)'
-                    : 'rgba(15,23,42,0.14)',
+                borderColor:
+                  isSearchOpen || globalSearch
+                    ? theme.accent
+                    : theme.isDark
+                      ? 'rgba(255,255,255,0.20)'
+                      : 'rgba(15,23,42,0.16)',
                 borderWidth: 1.5,
               },
             ]}>
             <View style={[styles.searchIconBadge, { backgroundColor: theme.accentSoft }]}>
-              <Ionicons name="search" size={16} color={theme.accent} />
+              <Ionicons name="search" size={18} color={theme.accent} />
             </View>
             <TextInput
               value={globalSearch}
-              onChangeText={setGlobalSearch}
-              placeholder="Szukaj przedmiotu, wykładowcy, oceny lub sali..."
+              onFocus={() => setIsSearchOpen(true)}
+              onChangeText={(txt) => {
+                setGlobalSearch(txt);
+                if (!isSearchOpen) setIsSearchOpen(true);
+              }}
+              placeholder="Szukaj nauczycieli, zajęć, ocen, przedmiotów..."
               placeholderTextColor={theme.textSecondary}
               style={[styles.topSearchInput, { color: theme.text }]}
             />
-            {globalSearch.length > 0 ? (
-              <Pressable onPress={() => setGlobalSearch('')}>
-                <Ionicons name="close-circle" size={19} color={theme.textMuted} />
+            {isSearchOpen || globalSearch.length > 0 ? (
+              <Pressable
+                onPress={() => {
+                  setGlobalSearch('');
+                  setIsSearchOpen(false);
+                  setSearchCategory('all');
+                  Keyboard.dismiss();
+                }}>
+                <Ionicons name="close-circle" size={21} color={theme.textMuted} />
               </Pressable>
             ) : (
-              <View style={[styles.kbdPill, { backgroundColor: theme.accentSoft }]}>
+              <Pressable
+                onPress={() => setIsSearchOpen(true)}
+                style={[styles.kbdPill, { backgroundColor: theme.accentSoft }]}>
                 <Text style={[styles.kbdText, { color: theme.accent }]}>SZUKAJ</Text>
-              </View>
+              </Pressable>
             )}
           </Animated.View>
 
-          {/* Instant Global Search Results Panel */}
+          {/* Animated Search Hints & Results Dropdown */}
           {searchResults && (
-            <GlassCard elevated padding={14} style={styles.searchDropdownCard}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={[styles.cardHeaderMono, { color: theme.accent }]}>
-                  WYNIKI WYSZUKIWANIA ({searchResults.total})
-                </Text>
-                <Pressable onPress={() => setGlobalSearch('')}>
-                  <Text style={[styles.seeAllLink, { color: theme.textSecondary }]}>Zamknij</Text>
-                </Pressable>
-              </View>
-
-              {searchResults.total === 0 ? (
-                <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                  Brak wyników dla „{globalSearch}”. Spróbuj wpisać nazwisko prowadzącego w katalogu
-                  kadry.
-                </Text>
-              ) : (
-                <View style={{ gap: 8 }}>
-                  {searchResults.courses.map((c) => (
-                    <Pressable
-                      key={`sr-c-${c.course_id}`}
-                      onPress={() => {
-                        setGlobalSearch('');
-                        router.push(`/modal/course/${c.course_id}`);
-                      }}
-                      style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
-                      <Avatar name={c.coordinator} uri={c.coordinator_photo} size={34} />
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[styles.tabularSubject, { color: theme.text }]}
-                          numberOfLines={1}>
-                          {c.course_name.pl}
-                        </Text>
-                        <Text
-                          style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
-                          numberOfLines={1}>
-                           Przedmiot • {c.coordinator}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                    </Pressable>
-                  ))}
-
-                  {searchResults.teachers.map((t) => (
-                    <Pressable
-                      key={`sr-t-${t.id}`}
-                      onPress={() => {
-                        setGlobalSearch('');
-                        router.push('/modal/module/staff');
-                      }}
-                      style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
-                      <Avatar name={t.name} uri={t.photo_url} size={34} />
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[styles.tabularSubject, { color: theme.text }]}
-                          numberOfLines={1}>
-                          {t.titles} {t.name}
-                        </Text>
-                        <Text
-                          style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
-                          numberOfLines={1}>
-                          Wykładowca • {t.room}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                    </Pressable>
-                  ))}
-
-                  {searchResults.grades.map((g) => (
-                    <Pressable
-                      key={`sr-g-${g.id}`}
-                      onPress={() => {
-                        setGlobalSearch('');
-                        router.push(`/modal/course/${g.course_id}`);
-                      }}
-                      style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
-                      <GradeBadge symbol={g.value_symbol} size="sm" />
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[styles.tabularSubject, { color: theme.text }]}
-                          numberOfLines={1}>
-                          {g.course_name.pl}
-                        </Text>
-                        <Text
-                          style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
-                          numberOfLines={1}>
-                          Ocena • {g.author_name}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                    </Pressable>
-                  ))}
+            <Animated.View entering={FadeInDown.duration(220)}>
+              <GlassCard elevated padding={14} style={styles.searchDropdownCard}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={[styles.cardHeaderMono, { color: theme.accent }]}>
+                    {searchResults.hasQuery || searchCategory !== 'all'
+                      ? `WYNIKI (${searchResults.total})`
+                      : 'SZYBKIE KATEGORIE WYSZUKIWANIA'}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setGlobalSearch('');
+                      setIsSearchOpen(false);
+                      setSearchCategory('all');
+                      Keyboard.dismiss();
+                    }}>
+                    <Text style={[styles.seeAllLink, { color: theme.textSecondary }]}>Zamknij</Text>
+                  </Pressable>
                 </View>
-              )}
-            </GlassCard>
+
+                {/* Clickable Category Hint Pills */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.hintChipsRow}>
+                  {(
+                    [
+                      { id: 'teachers', label: 'Nauczyciele', icon: 'people-outline' as const },
+                      { id: 'classes', label: 'Zajęcia', icon: 'calendar-outline' as const },
+                      { id: 'courses', label: 'Przedmioty', icon: 'book-outline' as const },
+                      { id: 'grades', label: 'Oceny', icon: 'ribbon-outline' as const },
+                    ] as const
+                  ).map((cat) => {
+                    const active = searchCategory === cat.id;
+                    return (
+                      <Pressable
+                        key={cat.id}
+                        onPress={() => {
+                          if (Platform.OS === 'ios') {
+                            Haptics.selectionAsync().catch(() => {});
+                          }
+                          setSearchCategory(active ? 'all' : cat.id);
+                        }}
+                        style={[
+                          styles.hintChip,
+                          {
+                            backgroundColor: active ? theme.accent : theme.bgSecondary,
+                            borderColor: active ? theme.accent : theme.cardBorder,
+                          },
+                        ]}>
+                        <Ionicons
+                          name={cat.icon}
+                          size={14}
+                          color={active ? theme.primaryContrast : theme.accent}
+                        />
+                        <Text
+                          style={[
+                            styles.hintChipText,
+                            { color: active ? theme.primaryContrast : theme.text },
+                          ]}>
+                          {cat.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+
+                {!searchResults.hasQuery && searchCategory === 'all' ? (
+                  <View style={styles.quickHintGrid}>
+                    <Pressable
+                      onPress={() => setSearchCategory('teachers')}
+                      style={[
+                        styles.quickHintTile,
+                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
+                      ]}>
+                      <Ionicons name="people-outline" size={18} color={theme.purple} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
+                          Nauczyciele ({staff.length})
+                        </Text>
+                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
+                          Pokaż listę i maile
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSearchCategory('classes')}
+                      style={[
+                        styles.quickHintTile,
+                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
+                      ]}>
+                      <Ionicons name="calendar-outline" size={18} color={theme.accent} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
+                          Zajęcia ({scheduleRows.length})
+                        </Text>
+                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
+                          Najbliższy plan
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSearchCategory('courses')}
+                      style={[
+                        styles.quickHintTile,
+                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
+                      ]}>
+                      <Ionicons name="book-outline" size={18} color={theme.success} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
+                          Przedmioty ({courses.length})
+                        </Text>
+                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
+                          Sylabusy i grupy
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSearchCategory('grades')}
+                      style={[
+                        styles.quickHintTile,
+                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
+                      ]}>
+                      <Ionicons name="ribbon-outline" size={18} color={theme.warning} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
+                          Oceny ({grades.length})
+                        </Text>
+                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
+                          Protokoły ocen
+                        </Text>
+                      </View>
+                    </Pressable>
+                  </View>
+                ) : searchResults.total === 0 ? (
+                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+                    Brak wyników{searchResults.hasQuery ? ` dla „${globalSearch}”` : ''} w wybranej
+                    kategorii.
+                  </Text>
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    {searchResults.teachers.map((t) => (
+                      <Pressable
+                        key={`sr-t-${t.id}`}
+                        onPress={() => {
+                          setGlobalSearch('');
+                          setIsSearchOpen(false);
+                          router.push('/modal/module/staff');
+                        }}
+                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
+                        <Avatar name={t.name} uri={t.photo_url} size={36} />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[styles.tabularSubject, { color: theme.text }]}
+                            numberOfLines={1}>
+                            {t.titles} {t.name}
+                          </Text>
+                          <Text
+                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
+                            numberOfLines={1}>
+                            {t.email && t.email.includes('@')
+                              ? t.email
+                              : `Wykładowca • ${t.room}`}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                      </Pressable>
+                    ))}
+
+                    {searchResults.classes.map((act) => (
+                      <Pressable
+                        key={`sr-cl-${act.id}`}
+                        onPress={() => {
+                          setGlobalSearch('');
+                          setIsSearchOpen(false);
+                          router.push('/(tabs)/timetable');
+                        }}
+                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
+                        <View
+                          style={[
+                            styles.searchMiniTimePill,
+                            { backgroundColor: theme.accentSoft },
+                          ]}>
+                          <Text style={[styles.searchMiniTimeText, { color: theme.accent }]}>
+                            {act.start_time}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[styles.tabularSubject, { color: theme.text }]}
+                            numberOfLines={1}>
+                            {act.course_name.pl}
+                          </Text>
+                          <Text
+                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
+                            numberOfLines={1}>
+                            {act.class_type.pl} • Sala {act.room_number} • {act.lecturer_name}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                      </Pressable>
+                    ))}
+
+                    {searchResults.courses.map((c) => (
+                      <Pressable
+                        key={`sr-c-${c.course_id}`}
+                        onPress={() => {
+                          setGlobalSearch('');
+                          setIsSearchOpen(false);
+                          router.push(`/modal/course/${c.course_id}`);
+                        }}
+                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
+                        <Avatar name={c.coordinator} uri={c.coordinator_photo} size={36} />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[styles.tabularSubject, { color: theme.text }]}
+                            numberOfLines={1}>
+                            {c.course_name.pl}
+                          </Text>
+                          <Text
+                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
+                            numberOfLines={1}>
+                            Przedmiot • {c.coordinator}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                      </Pressable>
+                    ))}
+
+                    {searchResults.grades.map((g) => (
+                      <Pressable
+                        key={`sr-g-${g.id}`}
+                        onPress={() => {
+                          setGlobalSearch('');
+                          setIsSearchOpen(false);
+                          router.push(`/modal/course/${g.course_id}`);
+                        }}
+                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
+                        <GradeBadge symbol={g.value_symbol} size="sm" />
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            style={[styles.tabularSubject, { color: theme.text }]}
+                            numberOfLines={1}>
+                            {g.course_name.pl}
+                          </Text>
+                          <Text
+                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
+                            numberOfLines={1}>
+                            Ocena • {g.author_name}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </GlassCard>
+            </Animated.View>
           )}
 
           {/* 2. STUDENT PROFILE & UNIVERSITY CARD WITH HIGH-RES PHOTO */}
@@ -886,36 +1131,89 @@ const styles = StyleSheet.create({
   topSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50,
-    borderRadius: 16,
+    height: 56,
+    borderRadius: 18,
     borderWidth: 1.5,
-    paddingHorizontal: 12,
-    gap: 10,
+    paddingHorizontal: 14,
+    gap: 11,
   },
   searchIconBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   topSearchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   kbdPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   kbdText: {
     fontFamily: MONO_FONT,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '800',
   },
   searchDropdownCard: {
     gap: 10,
+  },
+  hintChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  hintChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 11,
+    borderWidth: 1,
+  },
+  hintChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickHintGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickHintTile: {
+    width: '48.5%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    padding: 11,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  quickHintTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  quickHintSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  searchMiniTimePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 9,
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  searchMiniTimeText: {
+    fontFamily: MONO_FONT,
+    fontSize: 11,
+    fontWeight: '800',
   },
   searchHitRow: {
     flexDirection: 'row',

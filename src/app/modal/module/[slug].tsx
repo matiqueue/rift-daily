@@ -94,27 +94,37 @@ export default function ModuleScreenModal() {
   const [surveyRating, setSurveyRating] = useState<number>(5);
   const [surveyComment, setSurveyComment] = useState<string>('');
 
+  const sortPhotoFirst = (list: UsosStaffMember[]) =>
+    [...list].sort((a, b) => {
+      const aHas = Boolean(a.photo_url && a.photo_url.startsWith('http'));
+      const bHas = Boolean(b.photo_url && b.photo_url.startsWith('http'));
+      if (aHas !== bHas) return Number(bHas) - Number(aHas);
+      return a.name.localeCompare(b.name, 'pl');
+    });
+
   useEffect(() => {
-    setStaffResults(staff);
+    setStaffResults(sortPhotoFirst(staff));
   }, [staff]);
 
   useEffect(() => {
     const q = staffQuery.trim().toLowerCase();
     if (!q) {
-      setStaffResults(staff);
+      setStaffResults(sortPhotoFirst(staff));
       setIsSearchingStaff(false);
       return;
     }
 
     // Immediate local filter so typing feels instant
-    const localHits = staff.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.titles.toLowerCase().includes(q) ||
-        s.faculty.toLowerCase().includes(q) ||
-        s.building.toLowerCase().includes(q) ||
-        (s.email || '').toLowerCase().includes(q) ||
-        (s.courses_taught || []).some((c) => c.toLowerCase().includes(q))
+    const localHits = sortPhotoFirst(
+      staff.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.titles.toLowerCase().includes(q) ||
+          s.faculty.toLowerCase().includes(q) ||
+          s.building.toLowerCase().includes(q) ||
+          (s.email || '').toLowerCase().includes(q) ||
+          (s.courses_taught || []).some((c) => c.toLowerCase().includes(q))
+      )
     );
     setStaffResults(localHits);
 
@@ -128,7 +138,7 @@ export default function ModuleScreenModal() {
     const timer = setTimeout(() => {
       searchStaffLive(staffQuery)
         .then((res) => {
-          if (!cancelled) setStaffResults(res);
+          if (!cancelled) setStaffResults(sortPhotoFirst(res));
         })
         .finally(() => {
           if (!cancelled) setIsSearchingStaff(false);
@@ -154,9 +164,6 @@ export default function ModuleScreenModal() {
       {/* Modal Header */}
       <View style={[styles.header, { borderBottomColor: theme.separator }]}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.apiLabel, { color: theme.primary }]}>
-            RIFT DAILY • {meta.category}
-          </Text>
           <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
             {meta.title}
           </Text>
@@ -959,9 +966,31 @@ export default function ModuleScreenModal() {
                         </Pressable>
                       </View>
                     ) : (
-                      <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '600' }}>
-                        ✉️ {member.email}
-                      </Text>
+                      <Pressable
+                        onPress={() => {
+                          hapticTap();
+                          const webBase = selectedInstallation.baseUrl
+                            .replace(/apps\.?/i, '')
+                            .replace(/\/+$/, '');
+                          const profileLink = `${webBase}/kontroler.php?_action=katalog2/osoby/pokazOsobe&os_id=${member.id}`;
+                          WebBrowser.openBrowserAsync(profileLink).catch(() => {});
+                        }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: 2,
+                        }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="mail-outline" size={14} color={theme.textSecondary} />
+                          <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '600' }}>
+                            Kontakt przez USOSweb
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: theme.primary, fontWeight: '700' }}>
+                          Otwórz profil →
+                        </Text>
+                      </Pressable>
                     )}
                   </View>
                 </GlassCard>

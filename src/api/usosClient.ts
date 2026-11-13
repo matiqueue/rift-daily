@@ -344,7 +344,7 @@ export class UsosApiClient {
         rawDict = await this.callMethod<Record<string, any>>('services/users/users', {
           user_ids: idsParam,
           fields:
-            'id|first_name|last_name|titles|email|office_hours|room|photo_urls[original|400x500|200x250|200x200|100x125]|employment_positions|interests|phone_numbers',
+            'id|first_name|last_name|titles|email|office_hours|room|photo_urls[original|400x500|200x250|200x200|100x125]|employment_positions|interests',
         });
       } catch {
         try {
@@ -356,6 +356,7 @@ export class UsosApiClient {
           try {
             rawDict = await this.callMethod<Record<string, any>>('services/users/users', {
               user_ids: idsParam,
+              fields: 'id|first_name|last_name|titles|photo_urls|office_hours|room',
             });
           } catch {
             continue;
