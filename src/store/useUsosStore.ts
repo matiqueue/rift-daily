@@ -669,44 +669,69 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       let effectiveWeekOffset = timetableWeekOffset;
       let knownLecturersMap: Record<string, UsosStaffMember> = {};
 
-      const addDaysIso = (isoDate: string, days: number): string => {
-        const [y, m, d] = isoDate.split('-').map((v) => parseInt(v, 10));
-        const dt = new Date(y, m - 1, d + days, 0, 0, 0, 0);
-        const pad = (n: number) => String(n).padStart(2, '0');
-        return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+      const hasRemainingClass = (acts: UsosTimetableActivity[]) => {
+        const nowMs = Date.now();
+        return acts.some((a) => {
+          if (!a.date) return true;
+          const [y, m, d] = a.date.split('-').map((v) => parseInt(v, 10));
+          const [hh, mm] = (a.end_time || '23:59').split(':').map((v) => parseInt(v, 10));
+          const end = new Date(
+            y,
+            m - 1,
+            d,
+            Number.isFinite(hh) ? hh : 23,
+            Number.isFinite(mm) ? mm : 59,
+            0,
+            0
+          );
+          return end.getTime() > nowMs;
+        });
       };
 
       try {
-        const currentMondayIso = getMondayForWeekOffset(0);
-        const upcomingResult = await client.fetchTimetable(currentMondayIso, 21);
-        upcomingActivities = upcomingResult.activities;
-        knownLecturersMap = upcomingResult.lecturersMap;
+        const w0Monday = getMondayForWeekOffset(0);
+        const w1Monday = getMondayForWeekOffset(1);
+        const w2Monday = getMondayForWeekOffset(2);
 
-        if (effectiveWeekOffset >= 0 && effectiveWeekOffset <= 2) {
-          const targetMondayIso = getMondayForWeekOffset(effectiveWeekOffset);
-          const targetSundayIso = addDaysIso(targetMondayIso, 6);
-          timetableActivities = upcomingActivities.filter(
-            (a) => a.date >= targetMondayIso && a.date <= targetSundayIso
-          );
+        const w0Res = await client.fetchTimetable(w0Monday, 7);
+        knownLecturersMap = { ...w0Res.lecturersMap };
 
-          if (effectiveWeekOffset === 0 && timetableActivities.length === 0 && upcomingActivities.length > 0) {
-            for (const candidateOffset of [1, 2]) {
-              const candMonday = getMondayForWeekOffset(candidateOffset);
-              const candSunday = addDaysIso(candMonday, 6);
-              const candActivities = upcomingActivities.filter(
-                (a) => a.date >= candMonday && a.date <= candSunday
-              );
-              if (candActivities.length > 0) {
-                effectiveWeekOffset = candidateOffset;
-                timetableActivities = candActivities;
-                break;
-              }
-            }
+        const [w1Settled, w2Settled] = await Promise.allSettled([
+          client.fetchTimetable(w1Monday, 7, knownLecturersMap),
+          client.fetchTimetable(w2Monday, 7, knownLecturersMap),
+        ]);
+
+        const w1Activities = w1Settled.status === 'fulfilled' ? w1Settled.value.activities : [];
+        const w2Activities = w2Settled.status === 'fulfilled' ? w2Settled.value.activities : [];
+        if (w1Settled.status === 'fulfilled') {
+          knownLecturersMap = { ...knownLecturersMap, ...w1Settled.value.lecturersMap };
+        }
+        if (w2Settled.status === 'fulfilled') {
+          knownLecturersMap = { ...knownLecturersMap, ...w2Settled.value.lecturersMap };
+        }
+
+        upcomingActivities = [...w0Res.activities, ...w1Activities, ...w2Activities];
+
+        if (effectiveWeekOffset === 0) {
+          if (hasRemainingClass(w0Res.activities)) {
+            timetableActivities = w0Res.activities;
+          } else if (w1Activities.length > 0) {
+            effectiveWeekOffset = 1;
+            timetableActivities = w1Activities;
+          } else if (w2Activities.length > 0) {
+            effectiveWeekOffset = 2;
+            timetableActivities = w2Activities;
+          } else {
+            timetableActivities = w0Res.activities;
           }
+        } else if (effectiveWeekOffset === 1) {
+          timetableActivities = w1Activities;
+        } else if (effectiveWeekOffset === 2) {
+          timetableActivities = w2Activities;
         } else {
           const ttResult = await client.fetchTimetable(weekMondayIso, 7, knownLecturersMap);
           timetableActivities = ttResult.activities;
-          knownLecturersMap = ttResult.lecturersMap;
+          knownLecturersMap = { ...knownLecturersMap, ...ttResult.lecturersMap };
         }
       } catch {
         timetableActivities = [];

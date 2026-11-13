@@ -95,9 +95,9 @@ export default function TimetableScreen() {
     const pad = (n: number) => String(n).padStart(2, '0');
     const range = `${pad(monday.getDate())}.${pad(monday.getMonth() + 1)}–${pad(sunday.getDate())}.${pad(sunday.getMonth() + 1)}`;
 
-    if (timetableWeekOffset === 0) return `BIEŻĄCY TYDZIEŃ (${range})`;
-    if (timetableWeekOffset === 1) return `NASTĘPNY TYDZIEŃ (${range})`;
-    if (timetableWeekOffset === -1) return `POPRZEDNI TYDZIEŃ (${range})`;
+    if (timetableWeekOffset === 0) return `TEN TYDZIEŃ (${range})`;
+    if (timetableWeekOffset === 1) return `NASTĘPNY (${range})`;
+    if (timetableWeekOffset === -1) return `POPRZEDNI (${range})`;
     return `TYDZIEŃ ${timetableWeekOffset > 0 ? `+${timetableWeekOffset}` : timetableWeekOffset} (${range})`;
   }, [timetableWeekOffset]);
 
@@ -106,8 +106,8 @@ export default function TimetableScreen() {
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         {/* Header with Week Switcher */}
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.monoOverline, { color: theme.textSecondary }]}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.monoOverline, { color: theme.textSecondary }]} numberOfLines={1}>
               {weekLabel} • {timetable.length} ZAJĘĆ
             </Text>
             <Text style={[styles.title, { color: theme.text }]}>Plan zajęć</Text>
@@ -395,6 +395,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
@@ -413,6 +414,7 @@ const styles = StyleSheet.create({
   },
   weekControls: {
     flexDirection: 'row',
+    flexShrink: 0,
     gap: 6,
   },
   weekBtn: {
