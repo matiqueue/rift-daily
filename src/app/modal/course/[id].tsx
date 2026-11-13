@@ -54,10 +54,6 @@ export default function CourseDetailModal() {
       {/* Modal Header */}
       <View style={[styles.header, { borderBottomColor: theme.separator }]}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.codeLabel, { color: theme.primary }]}>
-            {course.course_id} • SEMESTR {course.term_id}
-            {course.ects > 0 ? ` • ${course.ects} ECTS` : ''}
-          </Text>
           <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
             {course.course_name.pl}
           </Text>
@@ -163,9 +159,6 @@ export default function CourseDetailModal() {
               <GlassCard style={styles.rootTestCard}>
                 <View style={styles.rootTestTop}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.smallTag, { color: theme.success }]}>
-                      DRZEWO SPRAWDZIANÓW I ZALICZEŃ
-                    </Text>
                     <Text style={[styles.rootTestTitle, { color: theme.text }]}>
                       {rootTest.name.pl}
                     </Text>

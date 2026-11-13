@@ -1033,17 +1033,13 @@ export default function ModuleScreenModal() {
             {thesis ? (
               <GlassCard elevated style={{ gap: 10 }}>
                 <View style={styles.rowBetween}>
-                  <Text style={[styles.smallTag, { color: theme.primary }]}>
-                    ARCHIWUM PRAC DYPLOMOWYCH
+                  <Text style={[styles.itemTitle, { color: theme.text, flex: 1 }]}>
+                    Praca {thesis.type}: {thesis.title_pl}
                   </Text>
                   <Text style={{ fontSize: 12, fontWeight: '800', color: theme.success }}>
                     {thesis.status}
                   </Text>
                 </View>
-
-                <Text style={[styles.itemTitle, { color: theme.text }]}>
-                  Praca {thesis.type}: {thesis.title_pl}
-                </Text>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Avatar name={thesis.supervisor} uri={thesis.supervisor_photo} size={38} />
@@ -1072,9 +1068,6 @@ export default function ModuleScreenModal() {
 
             {dorm && (
               <GlassCard style={{ gap: 8 }}>
-                <Text style={[styles.smallTag, { color: theme.accent }]}>
-                  ZAKWATEROWANIE W AKADEMIKU
-                </Text>
                 <Text style={[styles.itemTitle, { color: theme.text }]}>{dorm.dorm_name}</Text>
                 <Text style={{ fontSize: 13, color: theme.textSecondary }}>
                   Pokój: <Text style={{ color: theme.text, fontWeight: '700' }}>{dorm.room_number}</Text> •{' '}
@@ -1085,9 +1078,6 @@ export default function ModuleScreenModal() {
 
             {slips.map((sl) => (
               <GlassCard key={sl.id} style={{ gap: 8 }}>
-                <Text style={[styles.smallTag, { color: theme.success }]}>
-                  ELEKTRONICZNA KARTA OBIEGOWA
-                </Text>
                 <Text style={[styles.itemTitle, { color: theme.text }]}>{sl.title}</Text>
                 {sl.items.map((it, i) => (
                   <View key={i} style={styles.rowBetween}>

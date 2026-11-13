@@ -53,21 +53,33 @@ export default function RootLayout() {
           <Stack.Screen
             name="modal/course/[id]"
             options={{
-              presentation: 'modal',
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.72, 1.0],
+              sheetInitialDetentIndex: 0,
+              sheetGrabberVisible: true,
+              sheetCornerRadius: 24,
               animation: 'slide_from_bottom',
             }}
           />
           <Stack.Screen
             name="modal/module/[slug]"
             options={{
-              presentation: 'modal',
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.72, 1.0],
+              sheetInitialDetentIndex: 0,
+              sheetGrabberVisible: true,
+              sheetCornerRadius: 24,
               animation: 'slide_from_bottom',
             }}
           />
           <Stack.Screen
             name="modal/api-config"
             options={{
-              presentation: 'modal',
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.72, 1.0],
+              sheetInitialDetentIndex: 0,
+              sheetGrabberVisible: true,
+              sheetCornerRadius: 24,
               animation: 'slide_from_bottom',
             }}
           />

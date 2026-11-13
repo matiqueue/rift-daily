@@ -178,57 +178,77 @@ export default function DashboardScreen() {
     const q = globalSearch.trim().toLowerCase();
     if (!q && !isSearchOpen) return null;
 
+    const dedupeBy = <T,>(arr: T[], getKey: (item: T) => string): T[] => {
+      const seen = new Set<string>();
+      const out: T[] = [];
+      for (const item of arr) {
+        const k = getKey(item);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(item);
+      }
+      return out;
+    };
+
     const matchedCourses =
       searchCategory === 'all' || searchCategory === 'courses'
-        ? (q
-            ? courses.filter(
-                (c) =>
-                  c.course_name.pl.toLowerCase().includes(q) ||
-                  c.course_id.toLowerCase().includes(q) ||
-                  c.coordinator.toLowerCase().includes(q)
-              )
-            : courses
+        ? dedupeBy(
+            q
+              ? courses.filter(
+                  (c) =>
+                    c.course_name.pl.toLowerCase().includes(q) ||
+                    c.course_id.toLowerCase().includes(q) ||
+                    c.coordinator.toLowerCase().includes(q)
+                )
+              : courses,
+            (c) => c.course_id
           ).slice(0, 6)
         : [];
 
     const matchedTeachers =
       searchCategory === 'all' || searchCategory === 'teachers'
-        ? (q
-            ? sortedAllStaff.filter(
-                (s) =>
-                  s.name.toLowerCase().includes(q) ||
-                  s.titles.toLowerCase().includes(q) ||
-                  s.room.toLowerCase().includes(q) ||
-                  (s.email || '').toLowerCase().includes(q) ||
-                  (s.courses_taught || []).some((ct) => ct.toLowerCase().includes(q))
-              )
-            : sortedAllStaff
+        ? dedupeBy(
+            q
+              ? sortedAllStaff.filter(
+                  (s) =>
+                    s.name.toLowerCase().includes(q) ||
+                    s.titles.toLowerCase().includes(q) ||
+                    s.room.toLowerCase().includes(q) ||
+                    (s.email || '').toLowerCase().includes(q) ||
+                    (s.courses_taught || []).some((ct) => ct.toLowerCase().includes(q))
+                )
+              : sortedAllStaff,
+            (s) => s.id
           ).slice(0, 6)
         : [];
 
     const matchedClasses =
       searchCategory === 'all' || searchCategory === 'classes'
-        ? (q
-            ? timetable.filter(
-                (t) =>
-                  (t.course_name.pl || '').toLowerCase().includes(q) ||
-                  (t.room_number || '').toLowerCase().includes(q) ||
-                  (t.lecturer_name || '').toLowerCase().includes(q)
-              )
-            : scheduleRows
+        ? dedupeBy(
+            q
+              ? timetable.filter(
+                  (t) =>
+                    (t.course_name.pl || '').toLowerCase().includes(q) ||
+                    (t.room_number || '').toLowerCase().includes(q) ||
+                    (t.lecturer_name || '').toLowerCase().includes(q)
+                )
+              : scheduleRows,
+            (act) => `${act.course_name.pl}|${act.day_of_week}|${act.start_time}`
           ).slice(0, 6)
         : [];
 
     const matchedGrades =
       searchCategory === 'all' || searchCategory === 'grades'
-        ? (q
-            ? grades.filter(
-                (g) =>
-                  g.course_name.pl.toLowerCase().includes(q) ||
-                  g.author_name.toLowerCase().includes(q) ||
-                  g.value_symbol.toLowerCase().includes(q)
-              )
-            : grades
+        ? dedupeBy(
+            q
+              ? grades.filter(
+                  (g) =>
+                    g.course_name.pl.toLowerCase().includes(q) ||
+                    g.author_name.toLowerCase().includes(q) ||
+                    g.value_symbol.toLowerCase().includes(q)
+                )
+              : grades,
+            (g) => g.id
           ).slice(0, 5)
         : [];
 
@@ -352,52 +372,55 @@ export default function DashboardScreen() {
                   </Pressable>
                 </View>
 
-                {/* Clickable Category Hint Pills */}
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.hintChipsRow}>
-                  {(
-                    [
-                      { id: 'teachers', label: 'Nauczyciele', icon: 'people-outline' as const },
-                      { id: 'classes', label: 'Zajęcia', icon: 'calendar-outline' as const },
-                      { id: 'courses', label: 'Przedmioty', icon: 'book-outline' as const },
-                      { id: 'grades', label: 'Oceny', icon: 'ribbon-outline' as const },
-                    ] as const
-                  ).map((cat) => {
-                    const active = searchCategory === cat.id;
-                    return (
-                      <Pressable
-                        key={cat.id}
-                        onPress={() => {
-                          if (Platform.OS === 'ios') {
-                            Haptics.selectionAsync().catch(() => {});
-                          }
-                          setSearchCategory(active ? 'all' : cat.id);
-                        }}
-                        style={[
-                          styles.hintChip,
-                          {
-                            backgroundColor: active ? theme.accent : theme.bgSecondary,
-                            borderColor: active ? theme.accent : theme.cardBorder,
-                          },
-                        ]}>
-                        <Ionicons
-                          name={cat.icon}
-                          size={14}
-                          color={active ? theme.primaryContrast : theme.accent}
-                        />
-                        <Text
+                {/* Clickable Category Filter Pills (shown when a category is active or user is typing) */}
+                {(searchCategory !== 'all' || searchResults.hasQuery) && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.hintChipsRow}>
+                    {(
+                      [
+                        { id: 'all', label: 'Wszystko', icon: 'apps-outline' as const },
+                        { id: 'teachers', label: 'Nauczyciele', icon: 'people-outline' as const },
+                        { id: 'classes', label: 'Zajęcia', icon: 'calendar-outline' as const },
+                        { id: 'courses', label: 'Przedmioty', icon: 'book-outline' as const },
+                        { id: 'grades', label: 'Oceny', icon: 'ribbon-outline' as const },
+                      ] as const
+                    ).map((cat) => {
+                      const active = searchCategory === cat.id;
+                      return (
+                        <Pressable
+                          key={cat.id}
+                          onPress={() => {
+                            if (Platform.OS === 'ios') {
+                              Haptics.selectionAsync().catch(() => {});
+                            }
+                            setSearchCategory(cat.id);
+                          }}
                           style={[
-                            styles.hintChipText,
-                            { color: active ? theme.primaryContrast : theme.text },
+                            styles.hintChip,
+                            {
+                              backgroundColor: active ? theme.accent : theme.bgSecondary,
+                              borderColor: active ? theme.accent : theme.cardBorder,
+                            },
                           ]}>
-                          {cat.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
+                          <Ionicons
+                            name={cat.icon}
+                            size={14}
+                            color={active ? theme.primaryContrast : theme.accent}
+                          />
+                          <Text
+                            style={[
+                              styles.hintChipText,
+                              { color: active ? theme.primaryContrast : theme.text },
+                            ]}>
+                            {cat.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
 
                 {!searchResults.hasQuery && searchCategory === 'all' ? (
                   <View style={styles.quickHintGrid}>

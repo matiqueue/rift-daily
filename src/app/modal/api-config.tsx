@@ -77,9 +77,6 @@ export default function ApiConfigModal() {
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             Autoryzacja i połączenie USOS
           </Text>
-          <Text style={[styles.headerSub, { color: theme.textSecondary }]} numberOfLines={1}>
-            {selectedInstallation.namePl}
-          </Text>
         </View>
         <Pressable
           onPress={() => router.back()}
