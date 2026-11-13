@@ -78,6 +78,7 @@ interface UsosState {
 
   user: UsosUserProfile;
   timetable: UsosTimetableActivity[];
+  upcomingTimetable: UsosTimetableActivity[];
   timetableWeekOffset: number;
   grades: UsosGradeItem[];
   courses: UsosCourseEdition[];
@@ -176,6 +177,7 @@ function getEmptyLiveState(inst: UsosInstallation) {
       current_term_id: 'Bieżący',
     },
     timetable: [] as UsosTimetableActivity[],
+    upcomingTimetable: [] as UsosTimetableActivity[],
     timetableWeekOffset: 0,
     grades: [] as UsosGradeItem[],
     courses: [] as UsosCourseEdition[],
@@ -663,23 +665,52 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       }
 
       let timetableActivities: UsosTimetableActivity[] = [];
+      let upcomingActivities: UsosTimetableActivity[] = [];
+      let effectiveWeekOffset = timetableWeekOffset;
       let knownLecturersMap: Record<string, UsosStaffMember> = {};
 
-      try {
-        const ttResult = await client.fetchTimetable(weekMondayIso, 7);
-        timetableActivities = ttResult.activities;
-        knownLecturersMap = ttResult.lecturersMap;
+      const addDaysIso = (isoDate: string, days: number): string => {
+        const [y, m, d] = isoDate.split('-').map((v) => parseInt(v, 10));
+        const dt = new Date(y, m - 1, d + days, 0, 0, 0, 0);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+      };
 
-        if (timetableActivities.length === 0 && timetableWeekOffset === 0) {
-          const nextMondayIso = getMondayForWeekOffset(1);
-          const nextTt = await client.fetchTimetable(nextMondayIso, 7, knownLecturersMap);
-          if (nextTt.activities.length > 0) {
-            timetableActivities = nextTt.activities;
-            knownLecturersMap = nextTt.lecturersMap;
+      try {
+        const currentMondayIso = getMondayForWeekOffset(0);
+        const upcomingResult = await client.fetchTimetable(currentMondayIso, 21);
+        upcomingActivities = upcomingResult.activities;
+        knownLecturersMap = upcomingResult.lecturersMap;
+
+        if (effectiveWeekOffset >= 0 && effectiveWeekOffset <= 2) {
+          const targetMondayIso = getMondayForWeekOffset(effectiveWeekOffset);
+          const targetSundayIso = addDaysIso(targetMondayIso, 6);
+          timetableActivities = upcomingActivities.filter(
+            (a) => a.date >= targetMondayIso && a.date <= targetSundayIso
+          );
+
+          if (effectiveWeekOffset === 0 && timetableActivities.length === 0 && upcomingActivities.length > 0) {
+            for (const candidateOffset of [1, 2]) {
+              const candMonday = getMondayForWeekOffset(candidateOffset);
+              const candSunday = addDaysIso(candMonday, 6);
+              const candActivities = upcomingActivities.filter(
+                (a) => a.date >= candMonday && a.date <= candSunday
+              );
+              if (candActivities.length > 0) {
+                effectiveWeekOffset = candidateOffset;
+                timetableActivities = candActivities;
+                break;
+              }
+            }
           }
+        } else {
+          const ttResult = await client.fetchTimetable(weekMondayIso, 7, knownLecturersMap);
+          timetableActivities = ttResult.activities;
+          knownLecturersMap = ttResult.lecturersMap;
         }
       } catch {
         timetableActivities = [];
+        upcomingActivities = [];
       }
 
       const [cgRes, payRes, cardRes, exRes, srvRes, bldRes, thRes] = await Promise.allSettled([
@@ -764,6 +795,8 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       set({
         user: liveUser,
         timetable: timetableActivities,
+        upcomingTimetable: upcomingActivities,
+        timetableWeekOffset: effectiveWeekOffset,
         courses: liveCourses,
         grades: liveGrades,
         staff: sortedLiveStaff,

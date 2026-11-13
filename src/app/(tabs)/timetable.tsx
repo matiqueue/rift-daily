@@ -35,12 +35,20 @@ const WEEKDAYS = [
 export default function TimetableScreen() {
   const theme = useAppTheme();
   const timetable = useUsosStore((s) => s.timetable);
+  const upcomingTimetable = useUsosStore((s) => s.upcomingTimetable);
   const timetableWeekOffset = useUsosStore((s) => s.timetableWeekOffset);
   const changeTimetableWeek = useUsosStore((s) => s.changeTimetableWeek);
   const syncFromLiveApi = useUsosStore((s) => s.syncFromLiveApi);
   const isSyncing = useUsosStore((s) => s.isSyncing);
 
-  const nextClassInfo = useMemo(() => getNextClassHighlight(timetable), [timetable]);
+  const effectiveUpcoming = useMemo(
+    () => (upcomingTimetable.length > 0 ? upcomingTimetable : timetable),
+    [upcomingTimetable, timetable]
+  );
+  const nextClassInfo = useMemo(
+    () => getNextClassHighlight(effectiveUpcoming),
+    [effectiveUpcoming]
+  );
 
   const initialDay = useMemo(() => {
     if (nextClassInfo) return nextClassInfo.activity.day_of_week;
@@ -75,10 +83,22 @@ export default function TimetableScreen() {
   }, [timetable, selectedDay, viewMode]);
 
   const weekLabel = useMemo(() => {
-    if (timetableWeekOffset === 0) return 'BIEŻĄCY TYDZIEŃ';
-    if (timetableWeekOffset === 1) return 'NASTĘPNY TYDZIEŃ (+1)';
-    if (timetableWeekOffset === -1) return 'POPRZEDNI TYDZIEŃ (-1)';
-    return `TYDZIEŃ (${timetableWeekOffset > 0 ? `+${timetableWeekOffset}` : timetableWeekOffset})`;
+    const now = new Date();
+    const jsDay = now.getDay();
+    const diffToMonday = jsDay === 0 ? -6 : 1 - jsDay;
+    const monday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + diffToMonday + timetableWeekOffset * 7
+    );
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const range = `${pad(monday.getDate())}.${pad(monday.getMonth() + 1)}–${pad(sunday.getDate())}.${pad(sunday.getMonth() + 1)}`;
+
+    if (timetableWeekOffset === 0) return `BIEŻĄCY TYDZIEŃ (${range})`;
+    if (timetableWeekOffset === 1) return `NASTĘPNY TYDZIEŃ (${range})`;
+    if (timetableWeekOffset === -1) return `POPRZEDNI TYDZIEŃ (${range})`;
+    return `TYDZIEŃ ${timetableWeekOffset > 0 ? `+${timetableWeekOffset}` : timetableWeekOffset} (${range})`;
   }, [timetableWeekOffset]);
 
   return (

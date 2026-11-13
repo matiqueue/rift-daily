@@ -23,7 +23,7 @@ import { UniversityIcon } from '@/components/UniversityIcon';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
 import { MONO_FONT, ThemeMode } from '@/theme/theme';
-import { getNextClassHighlight } from '@/utils/timetableUtils';
+import { getNextClassHighlight, toLocalIsoDate } from '@/utils/timetableUtils';
 
 export default function DashboardScreen() {
   const theme = useAppTheme();
@@ -32,6 +32,7 @@ export default function DashboardScreen() {
   const isSyncing = useUsosStore((s) => s.isSyncing);
   const syncFromLiveApi = useUsosStore((s) => s.syncFromLiveApi);
   const timetable = useUsosStore((s) => s.timetable);
+  const upcomingTimetable = useUsosStore((s) => s.upcomingTimetable);
   const grades = useUsosStore((s) => s.grades);
   const courses = useUsosStore((s) => s.courses);
   const staff = useUsosStore((s) => s.staff);
@@ -73,18 +74,25 @@ export default function DashboardScreen() {
     return gradeEcts > 0 ? gradeEcts : courses.length * 3;
   }, [courses, grades]);
 
-  const nextClassInfo = useMemo(() => getNextClassHighlight(timetable), [timetable]);
+  const effectiveUpcoming = useMemo(
+    () => (upcomingTimetable.length > 0 ? upcomingTimetable : timetable),
+    [upcomingTimetable, timetable]
+  );
+
+  const nextClassInfo = useMemo(
+    () => getNextClassHighlight(effectiveUpcoming),
+    [effectiveUpcoming]
+  );
 
   const scheduleRows = useMemo(() => {
     if (nextClassInfo && nextClassInfo.daySchedule.length > 0) {
       return nextClassInfo.daySchedule.slice(0, 6);
     }
-    const nowDay = new Date().getDay();
-    const targetDay = nowDay === 0 || nowDay === 6 ? 1 : nowDay;
-    const todayClasses = timetable.filter((t) => t.day_of_week === targetDay);
+    const todayIso = toLocalIsoDate(new Date());
+    const todayClasses = effectiveUpcoming.filter((t) => t.date === todayIso);
     if (todayClasses.length > 0) return todayClasses.slice(0, 6);
-    return timetable.slice(0, 6);
-  }, [timetable, nextClassInfo]);
+    return effectiveUpcoming.slice(0, 6);
+  }, [effectiveUpcoming, nextClassInfo]);
 
   const nextActivity = nextClassInfo?.activity || scheduleRows[0] || null;
   const recentGrades = useMemo(() => grades.slice(0, 5), [grades]);
