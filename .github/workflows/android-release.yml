@@ -124,7 +124,7 @@ jobs:
           ls -la build-artifacts
 
       - name: 📤 Zapisanie artefaktu APK w Actions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RiftDaily-Android-APK
           path: build-artifacts/RiftDaily.apk
