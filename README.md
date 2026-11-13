@@ -96,7 +96,7 @@ npm install
 
 ### 🤖 Uruchomienie i konfiguracja na **Androidzie** (Poradnik krok po kroku)
 
-Aplikacja **Rift Daily** jest w pełni przystosowana pod system **Android** (obsługuje natywne kanały powiadomień `AndroidImportance.MAX`, uprawnienia `POST_NOTIFICATIONS` dla Androida 13+, czytnik linii papilarnych / biometrię `USE_BIOMETRIC`, adaptacyjną ikonę oraz głębokie linkowanie `betterusos://oauth-callback` dla logowania USOS).
+Aplikacja **Rift Daily** jest w pełni przystosowana pod system **Android** (obsługuje natywne kanały powiadomień `AndroidImportance.MAX`, uprawnienia `POST_NOTIFICATIONS` dla Androida 13+, czytnik linii papilarnych / biometrię `USE_BIOMETRIC`, adaptacyjną ikonę oraz głębokie linkowanie `riftdaily://oauth-callback` dla logowania USOS).
 
 #### Wymagania dla Androida:
 1. Zainstalowany **Android Studio** (wraz z *Android SDK Platform 35*, *Android SDK Build-Tools* oraz *Platform-Tools / `adb`*).
@@ -154,8 +154,8 @@ npx expo run:ios --device
 #### Opcja B: Samodzielna wersja **Release** na fizycznego iPhone'a (działa bez komputera i bez Metro)
 ```bash
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-xcodebuild -workspace ios/BetterUSOS.xcworkspace \
-  -scheme BetterUSOS \
+xcodebuild -workspace ios/RiftDaily.xcworkspace \
+  -scheme RiftDaily \
   -configuration Release \
   -destination 'generic/platform=iOS' \
   -derivedDataPath ios/build \

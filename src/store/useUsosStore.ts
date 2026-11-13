@@ -486,7 +486,7 @@ export const useUsosStore = create<UsosState>((set, get) => ({
     }
 
     try {
-      const callbackUrl = 'betterusos://oauth-callback';
+      const callbackUrl = 'riftdaily://oauth-callback';
       const client = new UsosApiClient(selectedInstallation.baseUrl, {
         consumerKey,
         consumerSecret,

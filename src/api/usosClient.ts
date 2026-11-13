@@ -169,9 +169,9 @@ export class UsosApiClient {
       const csrf = match ? match[1] : '';
 
       const formBody = [
-        `appname=${encodeURIComponent('Better USOS iOS')}`,
-        `appurl=${encodeURIComponent('https://betterusos.app')}`,
-        `email=${encodeURIComponent('kontakt@betterusos.pl')}`,
+        `appname=${encodeURIComponent('Rift Daily')}`,
+        `appurl=${encodeURIComponent('https://github.com/matiqueue/rift-daily')}`,
+        `email=${encodeURIComponent('matiqueue@users.noreply.github.com')}`,
         csrf ? `csrfmiddlewaretoken=${encodeURIComponent(csrf)}` : '',
       ]
         .filter(Boolean)
@@ -205,7 +205,7 @@ export class UsosApiClient {
    * Step 1 of OAuth 1.0a: Obtain an unauthorized Request Token (`services/oauth/request_token`)
    */
   async getRequestToken(
-    callbackUrl = 'betterusos://oauth-callback',
+    callbackUrl = 'riftdaily://oauth-callback',
     scopes = USOS_DEFAULT_SCOPES
   ): Promise<{
     oauthToken: string;
