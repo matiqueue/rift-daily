@@ -164,7 +164,7 @@ export default function CourseDetailModal() {
                 <View style={styles.rootTestTop}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.smallTag, { color: theme.success }]}>
-                      DRZEWO SPRAWDZIANÓW (SERVICES/CRSTESTS)
+                      DRZEWO SPRAWDZIANÓW I ZALICZEŃ
                     </Text>
                     <Text style={[styles.rootTestTitle, { color: theme.text }]}>
                       {rootTest.name.pl}

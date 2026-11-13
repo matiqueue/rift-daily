@@ -1366,20 +1366,20 @@ export class UsosApiClient {
 
   /**
    * Search university staff members (`services/users/search2`)
-   * Verified 200 OK on UKEN `services/users/search2`, including `photo_urls`!
    */
   async searchStaff(query: string): Promise<UsosStaffMember[]> {
-    if (!query.trim()) return [];
+    const trimmed = query.trim();
+    if (!trimmed) return [];
     const raw = await this.callMethod<any>('services/users/search2', {
       lang: 'pl',
-      query: query.trim(),
+      query: trimmed,
       among: 'current_staff',
-      num: 20,
+      num: 15,
       fields:
-        'items[user[id|first_name|last_name|titles|email|office_hours|room|photo_urls[original|400x500|200x250|200x200|100x125]|employment_positions|interests]]',
+        'items[user[id|first_name|last_name|titles|email|office_hours|room|photo_urls[200x250|200x200|400x500|100x125]|employment_positions]]',
     });
 
-    return (raw?.items || []).map((entry: any) => {
+    const mapped: UsosStaffMember[] = (raw?.items || []).map((entry: any) => {
       const u = entry.user || {};
       const { fullName, titles } = formatUserFullName(u);
       return {
@@ -1397,8 +1397,13 @@ export class UsosApiClient {
           stripHtmlTags(u.office_hours?.pl || u.office_hours?.en) ||
           'Wg harmonogramu konsultacji w USOSweb',
         photo_url: extractPhotoUrl(u.photo_urls),
-        interests: stripHtmlTags(u.interests?.pl || u.interests?.en) || undefined,
       };
+    });
+
+    return mapped.sort((a, b) => {
+      const photoDiff = Number(Boolean(b.photo_url)) - Number(Boolean(a.photo_url));
+      if (photoDiff !== 0) return photoDiff;
+      return a.name.localeCompare(b.name, 'pl');
     });
   }
 }

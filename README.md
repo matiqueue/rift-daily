@@ -225,4 +225,6 @@ Ten projekt jest udostępniany na licencji **Rift Daily Non-Commercial Open Sour
 
 <div align="center">
   <sub>Stworzone z pasją dla studentów polskich uczelni • <b>Rift Daily // e-Dziennik USOS (iOS & Android)</b></sub>
+  <br />
+  <sub>Main Contributor: <a href="https://github.com/matiqueue">@matiqueue</a> • <a href="https://matiqueue-portfolio.vercel.app">☕ Buy me a coffee</a></sub>
 </div>

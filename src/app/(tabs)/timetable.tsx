@@ -179,7 +179,7 @@ export default function TimetableScreen() {
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={theme.text} />
             <Text style={[styles.syncText, { color: theme.textSecondary }]}>
-              Synchronizacja planu z USOS API...
+              Synchronizacja planu zajęć...
             </Text>
           </View>
         )}

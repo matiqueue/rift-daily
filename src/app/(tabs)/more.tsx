@@ -275,7 +275,7 @@ export default function MoreHubScreen() {
 
           {/* Modules List */}
           <Text style={[styles.sectionMono, { color: theme.textSecondary, marginTop: 4 }]}>
-            WSZYSTKIE MODUŁY USOS API
+            WSZYSTKIE MODUŁY
           </Text>
 
           <View style={styles.modulesStack}>
@@ -339,7 +339,7 @@ export default function MoreHubScreen() {
             <Pressable onPress={syncFromLiveApi} style={styles.settingRowFirst}>
               <Ionicons name="sync-outline" size={18} color={theme.text} />
               <Text style={[styles.settingText, { color: theme.text }]}>
-                Odśwież wszystkie dane z USOS API
+                Odśwież wszystkie dane z uczelni
               </Text>
               <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
             </Pressable>

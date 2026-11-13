@@ -54,7 +54,7 @@ export default function CoursesScreen() {
         <View style={styles.header}>
           <View>
             <Text style={[styles.monoOverline, { color: theme.textSecondary }]}>
-              SERVICES/COURSES/USER • {filtered.length} POZYCJI
+              TWOJE PRZEDMIOTY • {filtered.length} POZYCJI
             </Text>
             <Text style={[styles.title, { color: theme.text }]}>Przedmioty</Text>
           </View>
@@ -148,7 +148,7 @@ export default function CoursesScreen() {
                 Brak przedmiotów do wyświetlenia
               </Text>
               <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                Pociągnij w dół, aby pobrać swoje przedmioty z USOS API (`services/courses/user`).
+                Pociągnij w dół, aby pobrać swoje przedmioty z uczelni.
               </Text>
             </GlassCard>
           ) : (

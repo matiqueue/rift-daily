@@ -3,6 +3,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
 
+const staffSearchCache = new Map<string, UsosStaffMember[]>();
+
 import {
   DEFAULT_USOS_INSTALLATIONS,
   fetchAllUsosInstallations,
@@ -753,12 +755,18 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         // Ignore notification errors during sync
       }
 
+      const sortedLiveStaff = [...liveStaff].sort((a, b) => {
+        const photoDiff = Number(Boolean(b.photo_url)) - Number(Boolean(a.photo_url));
+        if (photoDiff !== 0) return photoDiff;
+        return a.name.localeCompare(b.name, 'pl');
+      });
+
       set({
         user: liveUser,
         timetable: timetableActivities,
         courses: liveCourses,
         grades: liveGrades,
-        staff: liveStaff,
+        staff: sortedLiveStaff,
         payments: nextPayments,
         bankAccount: payRes.status === 'fulfilled' ? payRes.value.bankAccount : null,
         studentCard: cardRes.status === 'fulfilled' ? cardRes.value : null,
@@ -809,9 +817,11 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         const tt = await client.fetchTimetable(weekMondayIso, 7, knownMap);
         set({
           timetable: tt.activities,
-          staff: Object.values(tt.lecturersMap).sort((a, b) =>
-            a.name.localeCompare(b.name, 'pl')
-          ),
+          staff: Object.values(tt.lecturersMap).sort((a, b) => {
+            const photoDiff = Number(Boolean(b.photo_url)) - Number(Boolean(a.photo_url));
+            if (photoDiff !== 0) return photoDiff;
+            return a.name.localeCompare(b.name, 'pl');
+          }),
           isSyncing: false,
         });
       } catch {
@@ -903,16 +913,26 @@ export const useUsosStore = create<UsosState>((set, get) => ({
   searchStaffLive: async (query) => {
     const q = query.trim().toLowerCase();
     const currentStaff = get().staff;
-    if (!q) return currentStaff;
+    const sortPhotoFirst = (arr: UsosStaffMember[]) =>
+      [...arr].sort((a, b) => {
+        const photoDiff = Number(Boolean(b.photo_url)) - Number(Boolean(a.photo_url));
+        if (photoDiff !== 0) return photoDiff;
+        return a.name.localeCompare(b.name, 'pl');
+      });
 
-    const localFiltered = currentStaff.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.titles.toLowerCase().includes(q) ||
-        s.faculty.toLowerCase().includes(q) ||
-        s.building.toLowerCase().includes(q) ||
-        (s.courses_taught || []).some((c) => c.toLowerCase().includes(q)) ||
-        (s.interests || '').toLowerCase().includes(q)
+    if (!q) return sortPhotoFirst(currentStaff);
+
+    const localFiltered = sortPhotoFirst(
+      currentStaff.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.titles.toLowerCase().includes(q) ||
+          s.faculty.toLowerCase().includes(q) ||
+          s.building.toLowerCase().includes(q) ||
+          (s.email || '').toLowerCase().includes(q) ||
+          (s.courses_taught || []).some((c) => c.toLowerCase().includes(q)) ||
+          (s.interests || '').toLowerCase().includes(q)
+      )
     );
 
     const { selectedInstallation, consumerKey, consumerSecret, accessToken, accessTokenSecret } =
@@ -920,8 +940,15 @@ export const useUsosStore = create<UsosState>((set, get) => ({
 
     const effectiveKey = consumerKey || selectedInstallation.defaultConsumerKey || '';
     const effectiveSecret = consumerSecret || selectedInstallation.defaultConsumerSecret || '';
+    const cacheKey = `${selectedInstallation.id}:${q}`;
 
     if (effectiveKey && q.length >= 2) {
+      if (staffSearchCache.has(cacheKey)) {
+        const cached = staffSearchCache.get(cacheKey)!;
+        const seen = new Set(localFiltered.map((s) => s.id));
+        return sortPhotoFirst([...localFiltered, ...cached.filter((r) => !seen.has(r.id))]);
+      }
+
       try {
         const client = new UsosApiClient(selectedInstallation.baseUrl, {
           consumerKey: effectiveKey,
@@ -930,9 +957,10 @@ export const useUsosStore = create<UsosState>((set, get) => ({
           tokenSecret: accessTokenSecret || undefined,
         });
         const remote = await client.searchStaff(query);
+        staffSearchCache.set(cacheKey, remote);
         if (remote.length > 0) {
           const seen = new Set(localFiltered.map((s) => s.id));
-          return [...localFiltered, ...remote.filter((r) => !seen.has(r.id))];
+          return sortPhotoFirst([...localFiltered, ...remote.filter((r) => !seen.has(r.id))]);
         }
       } catch {
         // Fallback to local

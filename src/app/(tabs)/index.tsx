@@ -219,25 +219,32 @@ export default function DashboardScreen() {
             style={[
               styles.topSearchBar,
               {
-                backgroundColor: theme.card,
-                borderColor: globalSearch ? theme.accent : theme.cardBorder,
+                backgroundColor: theme.cardElevated,
+                borderColor: globalSearch
+                  ? theme.accent
+                  : theme.isDark
+                    ? 'rgba(255,255,255,0.16)'
+                    : 'rgba(15,23,42,0.14)',
+                borderWidth: 1.5,
               },
             ]}>
-            <Ionicons name="search" size={18} color={theme.accent} />
+            <View style={[styles.searchIconBadge, { backgroundColor: theme.accentSoft }]}>
+              <Ionicons name="search" size={16} color={theme.accent} />
+            </View>
             <TextInput
               value={globalSearch}
               onChangeText={setGlobalSearch}
-              placeholder="Szukaj przedmiotu, wykładowcy, oceny, sali lub modułu..."
-              placeholderTextColor={theme.textMuted}
+              placeholder="Szukaj przedmiotu, wykładowcy, oceny lub sali..."
+              placeholderTextColor={theme.textSecondary}
               style={[styles.topSearchInput, { color: theme.text }]}
             />
             {globalSearch.length > 0 ? (
               <Pressable onPress={() => setGlobalSearch('')}>
-                <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+                <Ionicons name="close-circle" size={19} color={theme.textMuted} />
               </Pressable>
             ) : (
-              <View style={[styles.kbdPill, { backgroundColor: theme.bgSecondary }]}>
-                <Text style={[styles.kbdText, { color: theme.textMuted }]}>USOS</Text>
+              <View style={[styles.kbdPill, { backgroundColor: theme.accentSoft }]}>
+                <Text style={[styles.kbdText, { color: theme.accent }]}>SZUKAJ</Text>
               </View>
             )}
           </Animated.View>
@@ -749,7 +756,9 @@ export default function DashboardScreen() {
                       <Text
                         style={[styles.teacherRowSub, { color: theme.textSecondary }]}
                         numberOfLines={1}>
-                        {teacher.courses_taught?.[0] || teacher.office_hours || teacher.faculty}
+                        {teacher.email && teacher.email.includes('@')
+                          ? teacher.email
+                          : teacher.courses_taught?.[0] || teacher.office_hours || teacher.faculty}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
@@ -780,7 +789,7 @@ export default function DashboardScreen() {
                     Brak wpisanych ocen w bieżącym protokole
                   </Text>
                   <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                    Pociągnij w dół, aby zsynchronizować protokoły ocen z USOS API.
+                    Pociągnij w dół, aby zsynchronizować protokoły ocen z uczelni.
                   </Text>
                 </View>
               </View>
@@ -877,15 +886,22 @@ const styles = StyleSheet.create({
   topSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 46,
+    height: 50,
     borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
     gap: 10,
+  },
+  searchIconBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topSearchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   kbdPill: {

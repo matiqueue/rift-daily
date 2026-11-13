@@ -5,7 +5,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -25,38 +27,38 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
 import { MONO_FONT } from '@/theme/theme';
 
-const MODULE_TITLES: Record<string, { title: string; apiPath: string }> = {
+const MODULE_TITLES: Record<string, { title: string; category: string }> = {
   mcard: {
     title: 'Elektroniczna Legitymacja (ELS)',
-    apiPath: 'services/cards/user_cards',
+    category: 'DOKUMENT STUDENCKI',
   },
   exams: {
     title: 'Sesja i Zapisy na Egzaminy',
-    apiPath: 'services/exams/student_exams',
+    category: 'SESJA EGZAMINACYJNA',
   },
   payments: {
     title: 'Płatności i Konto Uczelniane',
-    apiPath: 'services/payments/user_payments',
+    category: 'FINANSE I RATY',
   },
   registrations: {
     title: 'Rejestracje na Przedmioty',
-    apiPath: 'services/registrations',
+    category: 'REJESTRACJA ŻETONOWA',
   },
   surveys: {
     title: 'Ankiety Oceny Zajęć',
-    apiPath: 'services/surveys/surveys_to_fill2',
+    category: 'OCENA DYDAKTYKI',
   },
   staff: {
     title: 'Twoi Wykładowcy i Katalog Kadry',
-    apiPath: 'services/users/users & search2',
+    category: 'KADRA AKADEMICKA',
   },
   buildings: {
     title: 'Budynki i Kampus Uczelni',
-    apiPath: 'services/geo/building_index',
+    category: 'MAPA KAMPUSU',
   },
   thesis: {
     title: 'Dyplom (APD), Akademik i Obiegówka',
-    apiPath: 'services/theses/user',
+    category: 'SPRAWY STUDENCKIE',
   },
 };
 
@@ -85,6 +87,7 @@ export default function ModuleScreenModal() {
   // Staff search state
   const [staffQuery, setStaffQuery] = useState('');
   const [staffResults, setStaffResults] = useState<UsosStaffMember[]>(staff);
+  const [isSearchingStaff, setIsSearchingStaff] = useState(false);
 
   // Survey active state
   const [activeSurveyId, setActiveSurveyId] = useState<string | null>(null);
@@ -96,12 +99,45 @@ export default function ModuleScreenModal() {
   }, [staff]);
 
   useEffect(() => {
+    const q = staffQuery.trim().toLowerCase();
+    if (!q) {
+      setStaffResults(staff);
+      setIsSearchingStaff(false);
+      return;
+    }
+
+    // Immediate local filter so typing feels instant
+    const localHits = staff.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.titles.toLowerCase().includes(q) ||
+        s.faculty.toLowerCase().includes(q) ||
+        s.building.toLowerCase().includes(q) ||
+        (s.email || '').toLowerCase().includes(q) ||
+        (s.courses_taught || []).some((c) => c.toLowerCase().includes(q))
+    );
+    setStaffResults(localHits);
+
+    if (q.length < 2) {
+      setIsSearchingStaff(false);
+      return;
+    }
+
     let cancelled = false;
-    searchStaffLive(staffQuery).then((res) => {
-      if (!cancelled) setStaffResults(res);
-    });
+    setIsSearchingStaff(true);
+    const timer = setTimeout(() => {
+      searchStaffLive(staffQuery)
+        .then((res) => {
+          if (!cancelled) setStaffResults(res);
+        })
+        .finally(() => {
+          if (!cancelled) setIsSearchingStaff(false);
+        });
+    }, 280);
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [staffQuery, searchStaffLive, staff]);
 
@@ -119,7 +155,7 @@ export default function ModuleScreenModal() {
       <View style={[styles.header, { borderBottomColor: theme.separator }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.apiLabel, { color: theme.primary }]}>
-            USOS API • {meta.apiPath.toUpperCase()}
+            RIFT DAILY • {meta.category}
           </Text>
           <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
             {meta.title}
@@ -204,7 +240,7 @@ export default function ModuleScreenModal() {
               <Text style={[styles.qrSub, { color: theme.textSecondary }]}>
                 {studentCard?.barcode_number
                   ? `Numer kodu kreskowego karty: ${studentCard.barcode_number}`
-                  : 'Dane pobrane bezpośrednio z profilu USOS API.'}
+                  : 'Dane pobrane bezpośrednio z uczelni.'}
               </Text>
             </GlassCard>
           </>
@@ -771,16 +807,23 @@ export default function ModuleScreenModal() {
             <View
               style={[
                 styles.searchBar,
-                { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                {
+                  backgroundColor: theme.cardElevated,
+                  borderColor: staffQuery.length > 0 ? theme.primary : theme.cardBorder,
+                  borderWidth: 1.5,
+                },
               ]}>
-              <Ionicons name="search" size={18} color={theme.textSecondary} />
+              <Ionicons name="search" size={18} color={theme.primary} />
               <TextInput
                 value={staffQuery}
                 onChangeText={setStaffQuery}
                 placeholder={`Szukaj wykładowcy w ${selectedInstallation.shortName} (np. nazwisko)...`}
                 placeholderTextColor={theme.textMuted}
-                style={{ flex: 1, color: theme.text, fontSize: 14 }}
+                style={{ flex: 1, color: theme.text, fontSize: 14, fontWeight: '500' }}
               />
+              {isSearchingStaff && (
+                <ActivityIndicator size="small" color={theme.primary} />
+              )}
               {staffQuery.length > 0 && (
                 <Pressable onPress={() => setStaffQuery('')}>
                   <Ionicons name="close-circle" size={18} color={theme.textMuted} />
@@ -792,11 +835,11 @@ export default function ModuleScreenModal() {
               <GlassCard style={styles.emptyCard}>
                 <Ionicons name="people-outline" size={36} color={theme.primary} />
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                  Wyszukaj pracownika uczelni
+                  {isSearchingStaff ? 'Trwa wyszukiwanie w katalogu...' : 'Wyszukaj pracownika uczelni'}
                 </Text>
                 <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
                   Wpisz co najmniej 2 znaki nazwiska powyżej, aby przeszukać katalog pracowników{' '}
-                  {selectedInstallation.shortName} (`services/users/search2`).
+                  {selectedInstallation.shortName}.
                 </Text>
               </GlassCard>
             ) : (
@@ -867,9 +910,59 @@ export default function ModuleScreenModal() {
                       🕒 Konsultacje:{' '}
                       <Text style={{ fontWeight: '600' }}>{member.office_hours}</Text>
                     </Text>
-                    <Text style={{ fontSize: 12, color: theme.primary, fontWeight: '600' }}>
-                      ✉️ {member.email}
-                    </Text>
+                    {member.email && member.email.includes('@') ? (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          marginTop: 2,
+                        }}>
+                        <Pressable
+                          onPress={() => {
+                            hapticTap();
+                            Linking.openURL(`mailto:${member.email}`).catch(() => {});
+                          }}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                          <Ionicons name="mail-outline" size={14} color={theme.primary} />
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: theme.primary,
+                              fontWeight: '700',
+                              textDecorationLine: 'underline',
+                            }}
+                            numberOfLines={1}>
+                            {member.email}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={async () => {
+                            hapticTap();
+                            await Clipboard.setStringAsync(member.email);
+                            Alert.alert('Skopiowano', `Adres ${member.email} został skopiowany.`);
+                          }}
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 7,
+                            backgroundColor: theme.primarySoft,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}>
+                          <Ionicons name="copy-outline" size={12} color={theme.primary} />
+                          <Text style={{ fontSize: 10, fontWeight: '800', color: theme.primary }}>
+                            KOPIUJ
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '600' }}>
+                        ✉️ {member.email}
+                      </Text>
+                    )}
                   </View>
                 </GlassCard>
               ))
@@ -912,7 +1005,7 @@ export default function ModuleScreenModal() {
               <GlassCard elevated style={{ gap: 10 }}>
                 <View style={styles.rowBetween}>
                   <Text style={[styles.smallTag, { color: theme.primary }]}>
-                    ARCHIWUM PRAC DYPLOMOWYCH (SERVICES/THESES/USER)
+                    ARCHIWUM PRAC DYPLOMOWYCH
                   </Text>
                   <Text style={{ fontSize: 12, fontWeight: '800', color: theme.success }}>
                     {thesis.status}

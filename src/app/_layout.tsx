@@ -78,8 +78,8 @@ export default function RootLayout() {
         <AppLoadingScreen
           subtitle={
             isAuthenticated
-              ? 'Pobieranie ocen, planu zajęć i rozliczeń z USOS API...'
-              : 'Inicjalizacja Rift Daily // e-Dziennik USOS...'
+              ? 'Pobieranie ocen, planu zajęć i rozliczeń...'
+              : 'Inicjalizacja Rift Daily // e-Dziennik...'
           }
         />
       )}

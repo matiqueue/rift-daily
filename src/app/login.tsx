@@ -132,7 +132,7 @@ export default function LoginScreen() {
                 <View style={[styles.liveTag, { backgroundColor: theme.successSoft }]}>
                   <View style={[styles.liveDot, { backgroundColor: theme.success }]} />
                   <Text style={[styles.liveTagText, { color: theme.success }]}>
-                    OFICJALNE POŁĄCZENIE USOS API
+                    BEZPIECZNE LOGOWANIE UCZELNIANE
                   </Text>
                 </View>
               </View>

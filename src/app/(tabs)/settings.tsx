@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -794,7 +795,7 @@ export default function SettingsScreen() {
           <Animated.View entering={FadeInDown.delay(270).duration(400)} style={styles.sectionBlock}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionMono, { color: theme.textSecondary }]}>
-                KONTO USOS API I UCZELNIA
+                KONTO STUDENTA I UCZELNIA
               </Text>
               <Text style={[styles.sectionHint, { color: theme.textSecondary }]}>
                 SYNC: {lastSyncedAt || 'TERAZ'}
@@ -810,7 +811,7 @@ export default function SettingsScreen() {
                 style={styles.settingRowFirst}>
                 <Ionicons name="sync-outline" size={18} color={theme.accent} />
                 <Text style={[styles.settingText, { color: theme.text }]}>
-                  Wymuś pełną synchronizację z USOS API
+                  Wymuś pełną synchronizację danych
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
               </Pressable>
@@ -853,6 +854,56 @@ export default function SettingsScreen() {
                   Wyloguj z konta USOS
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color={theme.danger} />
+              </Pressable>
+            </GlassCard>
+          </Animated.View>
+
+          {/* SECTION 6: SUBTLE CREDITS & SUPPORT */}
+          <Animated.View entering={FadeInDown.delay(320).duration(400)} style={styles.sectionBlock}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionMono, { color: theme.textSecondary }]}>
+                O PROJEKCIE
+              </Text>
+              <Text style={[styles.sectionHint, { color: theme.textMuted }]}>
+                RIFT DAILY
+              </Text>
+            </View>
+
+            <GlassCard style={{ gap: 12 }}>
+              <Pressable
+                onPress={() => {
+                  hapticTap();
+                  Linking.openURL('https://github.com/matiqueue').catch(() => {});
+                }}
+                style={styles.settingRowFirst}>
+                <Ionicons name="logo-github" size={18} color={theme.text} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.settingText, { color: theme.text }]}>
+                    Main Contributor
+                  </Text>
+                  <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                    github.com/matiqueue
+                  </Text>
+                </View>
+                <Ionicons name="open-outline" size={16} color={theme.textMuted} />
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  hapticTap();
+                  Linking.openURL('https://matiqueue-portfolio.vercel.app').catch(() => {});
+                }}
+                style={[styles.prefRowDivider, { borderTopColor: theme.separator }]}>
+                <Ionicons name="cafe-outline" size={18} color={theme.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.settingText, { color: theme.text }]}>
+                    Buy me a coffee
+                  </Text>
+                  <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                    matiqueue-portfolio.vercel.app
+                  </Text>
+                </View>
+                <Ionicons name="open-outline" size={16} color={theme.textMuted} />
               </Pressable>
             </GlassCard>
           </Animated.View>

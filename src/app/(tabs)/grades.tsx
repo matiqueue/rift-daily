@@ -104,7 +104,7 @@ export default function GradesScreen() {
         <View style={styles.header}>
           <View>
             <Text style={[styles.monoOverline, { color: theme.textSecondary }]}>
-              SERVICES/GRADES • {grades.length} WPISÓW
+              PROTOKOŁY OCEN • {grades.length} WPISÓW
             </Text>
             <Text style={[styles.title, { color: theme.text }]}>Oceny i średnia</Text>
           </View>
