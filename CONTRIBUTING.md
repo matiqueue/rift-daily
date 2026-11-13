@@ -36,6 +36,11 @@ npx expo start
    ```
 3. Nie commituj plików `.env.local`, certyfikatów ani kluczy podpisujących.
 
+## Przepływ pracy (Git Flow: `dev` -> `main`)
+
+- **`dev`** to główna gałąź developerska. Wszystkie nowe funkcje, poprawki i Pull Requesty powinny być kierowane **do gałęzi `dev`**.
+- **`main`** to gałąź produkcyjna (chroniona). Scalenie zmian z `dev` do `main` z podbitą wersją w `package.json` / `app.json` automatycznie uruchamia workflow publikujący nowy Release (`RiftDaily.apk`).
+
 ## Zgłaszanie błędów i pomysłów
 
 - Błędy i propozycje funkcji zgłaszaj w zakładce **Issues** za pomocą przygotowanych szablonów.

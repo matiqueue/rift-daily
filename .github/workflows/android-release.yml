@@ -12,6 +12,8 @@ on:
         required: false
         default: 'Rift Daily v1.0.0 (Android APK)'
   push:
+    branches:
+      - main
     tags:
       - 'v*'
 
@@ -58,8 +60,24 @@ jobs:
         run: cd android && ./gradlew assembleRelease --no-daemon
 
       - name: 🗂️ Przygotowanie artefaktów wydania
+        id: prep
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          else
+            APP_VER=$(node -p "require('./package.json').version")
+            TAG="v${APP_VER}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
           mkdir -p build-artifacts
           cp android/app/build/outputs/apk/release/app-release.apk build-artifacts/RiftDaily.apk
           cp android/app/build/outputs/apk/release/app-release.apk build-artifacts/RiftDaily-${TAG}.apk
@@ -72,16 +90,17 @@ jobs:
           path: build-artifacts/RiftDaily.apk
 
       - name: 🚀 Publikacja w GitHub Releases
+        if: steps.prep.outputs.exists == 'false' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
-          name: ${{ github.event.inputs.release_title || github.ref_name }}
+          tag_name: ${{ steps.prep.outputs.tag }}
+          name: ${{ github.event.inputs.release_title || steps.prep.outputs.tag }}
           body: |
             ### 📱 Rift Daily — Oficjalne Wydanie na Androida (.APK)
 
             Pobierz gotowy plik instalacyjny **Rift Daily** na swój telefon z systemem Android:
-            - 🚀 **[Pobierz RiftDaily.apk](https://github.com/matiqueue/rift-daily/releases/download/${{ github.event.inputs.tag_name || github.ref_name }}/RiftDaily.apk)**
-            - 📦 Plik z wersją: `RiftDaily-${{ github.event.inputs.tag_name || github.ref_name }}.apk`
+            - 🚀 **[Pobierz RiftDaily.apk](https://github.com/matiqueue/rift-daily/releases/download/${{ steps.prep.outputs.tag }}/RiftDaily.apk)**
+            - 📦 Plik z wersją: `RiftDaily-${{ steps.prep.outputs.tag }}.apk`
 
             ---
 
