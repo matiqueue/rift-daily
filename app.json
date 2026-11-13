@@ -1,0 +1,73 @@
+{
+  "expo": {
+    "name": "Rift Daily",
+    "slug": "rift-daily",
+    "description": "Rift Daily — Mobilny e-Dziennik Studencki USOS (iOS & Android)",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "betterusos",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "pl.matique.betterusos",
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleDisplayName": "Rift Daily",
+        "LSApplicationCategoryType": "public.app-category.education",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Rift Daily używa Face ID do szybkiego odblokowywania dostępu do e-Dziennika USOS."
+      }
+    },
+    "android": {
+      "package": "pl.matique.betterusos",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#09090B",
+        "foregroundImage": "./assets/images/icon.png"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ],
+      "softwareKeyboardLayoutMode": "pan",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#09090B",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 96
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Rift Daily używa Face ID / biometrii do szybkiego odblokowywania dostępu do e-Dziennika USOS."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#818CF8",
+          "defaultChannel": "rift-daily-usos"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false,
+      "reactCompiler": true
+    }
+  }
+}

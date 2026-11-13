@@ -1,0 +1,74 @@
+RIFT DAILY NON-COMMERCIAL OPEN SOURCE LICENSE
+(Licencja Otwartego Oprogramowania Niekomercyjnego Rift Daily)
+
+Copyright (c) 2026 matiqueue (https://github.com/matiqueue/rift-daily)
+All rights reserved for commercial use. Free for non-commercial use.
+
+================================================================================
+WERSJA POLSKA (POLISH VERSION)
+================================================================================
+
+Niniejszym udziela się bezpłatnej licencji każdej osobie pobierającej kopię
+tego oprogramowania oraz powiązanej dokumentacji („Oprogramowanie”) na
+korzystanie z Oprogramowania wyłącznie w celach NIEKOMERCYJNYCH, osobistych,
+akademickich i edukacyjnych, w tym na uruchamianie, kopiowanie, modyfikowanie,
+łączenie, publikowanie oraz rozpowszechnianie kopii Oprogramowania, pod
+następującymi warunkami:
+
+1. CAŁKOWITA DARMOWOŚĆ I ZAKAZ KOMERCJALIZACJI (NON-COMMERCIAL CLAUSE):
+   Zabrania się wykorzystywania Oprogramowania (w całości lub w części), jego
+   kodu źródłowego, interfejsu graficznego lub wersji zmodyfikowanych (forków)
+   w jakichkolwiek celach komercyjnych lub zarobkowych. W szczególności
+   zabrania się:
+   a) sprzedaży Oprogramowania lub jego kopii/modyfikacji,
+   b) pobierania opłat za pobranie, instalację, aktualizację lub dostęp do
+      funkcji Oprogramowania (w tym mikropłatności, subskrypcji i paywalli),
+   c) umieszczania w Oprogramowaniu płatnych reklam lub modułów śledzących
+      w celach zarobkowych,
+   d) oferowania płatnych usług opartych na Oprogramowaniu.
+   Oprogramowanie oraz wszelkie jego pochodne (forki) muszą pozostać w 100%
+   darmowe dla wszystkich użytkowników końcowych (studentów).
+
+2. ZACHOWANIE INFORMACJI O AUTORSTWIE I LICENCJI:
+   Powyższa nota o prawach autorskich oraz niniejsza treść licencji muszą
+   zostać zachowane we wszystkich kopiach lub istotnych częściach
+   Oprogramowania.
+
+3. BRAK GWARANCJI:
+   OPROGRAMOWANIE JEST DOSTARCZANE „TAKIE, JAKIE JEST” (AS IS), BEZ JAKIEJKOLWIEK
+   GWARANCJI, WYRAŹNEJ LUB DOROZUMIANEJ. AUTORZY NIE PONOSZĄ ODPOWIEDZIALNOŚCI
+   ZA ŻADNE SZKODY WYNIKAJĄCE Z KORZYSTANIA Z OPROGRAMOWANIA.
+
+================================================================================
+ENGLISH VERSION (POLYFORM NONCOMMERCIAL 1.0.0 / COMMONS CLAUSE)
+================================================================================
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to use, copy,
+modify, merge, publish, and distribute the Software strictly for NON-COMMERCIAL,
+personal, academic, and educational purposes, subject to the following
+conditions:
+
+1. STRICT NON-COMMERCIAL USE & ZERO MONETIZATION:
+   You may NOT use the Software, its source code, UI, or any derivative works
+   for any commercial purpose or monetary gain. Specifically, you may NOT:
+   a) sell, lease, or license the Software or any derivative work for a fee,
+   b) charge users for downloading, installing, or accessing any feature of the
+      Software (including in-app purchases, subscriptions, or paywalls),
+   c) embed commercial advertisements or monetized tracking SDKs,
+   d) offer paid managed services based on the Software.
+   The Software and all derivative works (forks) must remain 100% free of charge
+   for all students and end users.
+
+2. ATTRIBUTION & NOTICE:
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+3. DISCLAIMER OF WARRANTY:
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
