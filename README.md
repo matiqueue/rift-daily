@@ -7,13 +7,19 @@
 ### Nowoczesny, superszybki mobilny **e-Dziennik Studencki USOS** na iOS i Androida
 
 [![License: Non-Commercial Free](https://img.shields.io/badge/License-Non--Commercial_100%25_Free-10B981.svg?style=for-the-badge)](./LICENSE)
+[![GitHub Releases](https://img.shields.io/badge/Pobierz_APK-GitHub_Releases-10B981.svg?style=for-the-badge&logo=android)](https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk)
+[![Strona WWW](https://img.shields.io/badge/Strona_WWW-Vercel-06B6D4.svg?style=for-the-badge&logo=vercel)](https://riftdaily.vercel.app)
 [![Expo SDK 58](https://img.shields.io/badge/Expo_SDK-58.0-818CF8.svg?style=for-the-badge&logo=expo)](https://docs.expo.dev/)
 [![React Native](https://img.shields.io/badge/React_Native-0.88-38BDF8.svg?style=for-the-badge&logo=react)](https://reactnative.dev/)
-[![iOS & Android](https://img.shields.io/badge/Platform-iOS_%7C_Android-A78BFA.svg?style=for-the-badge)](#instrukcja-instalacji-i-uruchomienia-ios--android)
-[![USOS API](https://img.shields.io/badge/USOS_API-OAuth_1.0a-F59E0B.svg?style=for-the-badge)](#architektura-projektu)
+[![CI / CD](https://img.shields.io/badge/GitHub_Actions-Android_APK_Build-22C55E.svg?style=for-the-badge&logo=githubactions)](#-automatyczne-budowanie-apk-w-github-actions-cicd)
 
 <p align="center">
   <b>Rift Daily</b> to zaprojektowany od podstaw kliencki e-dziennik akademicki w estetyce <b>Linear / Vercel Bento UI</b>, łączący się bezpośrednio z oficjalnym serwerem <b>USOS API (OAuth 1.0a)</b> polskich uczelni wyższych (m.in. <b>UKEN Kraków, UJ, AGH, PK, UEK, UW, PW, UAM, PWr, UWr, UMK, UŚ, PG, PŁ, KUL, SGH</b> i ponad 80 innych).
+</p>
+
+<p align="center">
+  🌐 <b><a href="https://riftdaily.vercel.app">Oficjalna strona projektu: riftdaily.vercel.app</a></b> &nbsp;•&nbsp;
+  🚀 <b><a href="https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk">Pobierz RiftDaily.apk na Androida</a></b>
 </p>
 
 [**⭐ Jeśli aplikacja Ci się podoba, to zostaw gwiazdkę (Star) na GitHubie!**](https://github.com/matiqueue/rift-daily/stargazers)
@@ -94,20 +100,25 @@ npm install
 
 ---
 
-### 🤖 Uruchomienie i konfiguracja na **Androidzie** (Poradnik krok po kroku)
+### 🤖 Uruchomienie i instalacja na **Androidzie**
 
 Aplikacja **Rift Daily** jest w pełni przystosowana pod system **Android** (obsługuje natywne kanały powiadomień `AndroidImportance.MAX`, uprawnienia `POST_NOTIFICATIONS` dla Androida 13+, czytnik linii papilarnych / biometrię `USE_BIOMETRIC`, adaptacyjną ikonę oraz głębokie linkowanie `riftdaily://oauth-callback` dla logowania USOS).
 
-#### Wymagania dla Androida:
-1. Zainstalowany **Android Studio** (wraz z *Android SDK Platform 35*, *Android SDK Build-Tools* oraz *Platform-Tools / `adb`*).
-2. **JDK 17** (np. `brew install --cask zulu@17` na macOS lub wbudowany JBR z Android Studio).
-3. Skonfigurowane zmienne środowiskowe `ANDROID_HOME` (w `~/.zshrc` lub `~/.bashrc`):
-   ```bash
-   export ANDROID_HOME=$HOME/Library/Android/sdk   # macOS (na Linuxie: $HOME/Android/Sdk)
-   export PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools
-   ```
+---
 
-#### Opcja A: Uruchomienie bezpośrednio na telefonie z Androidem przez USB / Wi-Fi
+#### 🚀 Opcja A (Najprostsza): Pobierz gotowy plik `.apk` z GitHub Releases (Bez instalowania czegokolwiek)
+
+Dzięki wbudowanemu workflow **GitHub Actions**, każde oficjalne wydanie aplikacji jest automatycznie kompilowane w chmurze i udostępniane w postaci gotowego pliku instalacyjnego:
+
+1. **Pobierz plik**: Kliknij bezpośredni link na telefonie z systemem Android:
+   👉 **[Pobierz najnowszy RiftDaily.apk (GitHub Releases)](https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk)**
+2. **Otwórz plik**: Po zakończeniu pobierania kliknij powiadomienie lub znajdź plik w folderze *Pobrane (Downloads)* na telefonie.
+3. **Zezwól na instalację**: Jeśli system Android wyświetli monit bezpieczeństwa o instalacji z nieznanego źródła (przeglądarki), kliknij **Ustawienia** i włącz suwak **„Zezwalaj z tego źródła”**.
+4. **Zaloguj się**: Uruchom Rift Daily, wybierz swoją uczelnię i zaloguj się oficjalnym kontem USOS.
+
+---
+
+#### Opcja B: Uruchomienie bezpośrednio na telefonie z Androidem przez USB / Wi-Fi (ze źródeł)
 1. Na telefonie z Androidem wejdź w **Ustawienia → Informacje o telefonie** i kliknij 7 razy w **Numer kompilacji**, aby odblokować **Opcje programistyczne**.
 2. Wejdź w **Ustawienia → System → Opcje programistyczne** i włącz **Debugowanie USB** (lub **Debugowanie bezprzewodowe**).
 3. Podłącz telefon kablem USB do komputera i zaakceptuj komunikat *„Zezwól na debugowanie USB”* (sprawdź połączenie komendą `adb devices`).
@@ -117,8 +128,8 @@ Aplikacja **Rift Daily** jest w pełni przystosowana pod system **Android** (obs
    npx expo run:android --device
    ```
 
-#### Opcja B: Wygenerowanie samodzielnego pliku instalacyjnego `.apk` (Release APK)
-Jeśli chcesz wygenerować gotowy plik `.apk`, który możesz przesłać na dowolny telefon z Androidem i zainstalować bez podłączania do komputera:
+#### Opcja C: Lokalna kompilacja samodzielnego pliku instalacyjnego `.apk` (Release APK)
+Jeśli chcesz wygenerować gotowy plik `.apk` lokalnie na swoim komputerze:
 
 ```bash
 # 1. Wygeneruj natywny katalog android/ (jednorazowo)
@@ -136,11 +147,47 @@ Następnie możesz zainstalować go na podłączonym telefonie komendą:
 adb install -r android/app/build/outputs/apk/release/app-release.apk
 ```
 
-#### Opcja C: Budowanie `.apk` w chmurze przez EAS Build (bez Android Studio)
+#### Opcja D: Budowanie `.apk` w chmurze przez EAS Build (bez Android Studio)
 Jeśli nie chcesz instalować lokalnie Android Studio ani SDK:
 ```bash
 npx eas-cli@latest build --platform android --profile preview
 ```
+
+---
+
+## ⚡ Automatyczne budowanie APK w GitHub Actions (CI/CD)
+
+Projekt posiada w pełni zautomatyzowany potok CI/CD zdefiniowany w [`.github/workflows/android-release.yml`](./.github/workflows/android-release.yml):
+
+- **Kiedy się uruchamia?**
+  - **Automatycznie**: Przy wypchnięciu nowego taga wersji (np. `git tag v1.0.0 && git push origin v1.0.0`).
+  - **Ręcznie na żądanie**: W zakładce **Actions** na GitHubie przyciskiem **„Run workflow”** (workflow_dispatch).
+- **Jak działa?**
+  1. Uruchamia czystą maszynę wirtualną `ubuntu-latest`.
+  2. Konfiguruje środowisko Java 17 i Node.js 20.
+  3. Wykonuje `npx expo prebuild --platform android` i kompiluje `./gradlew assembleRelease`.
+  4. Tworzy lub aktualizuje nowe **GitHub Release** i dołącza do niego gotowy plik `RiftDaily.apk`.
+
+Dzięki temu użytkownicy mają 100% gwarancji, że instalowany plik APK pochodzi wprost z publicznego, zweryfikowanego kodu źródłowego.
+
+---
+
+## 🌐 Strona internetowa (Landing Page — Vite + Vercel)
+
+W katalogu [`website/`](./website/) znajduje się dedykowana, ultralekka strona internetowa projektu zbudowana przy użyciu **Vite + React 19 + TypeScript + Tailwind CSS**.
+
+Strona zawiera:
+- Bezpośredni przycisk pobrania pliku `.apk` na Androida
+- Przewodnik instalacji dla systemu iOS i Android
+- Prezentację modułów aplikacji w estetyce Linear Bento UI
+- Sekcję FAQ i linki do wsparcia
+
+### 🚀 Wdrożenie strony na Vercel:
+1. W panelu [Vercel](https://vercel.com) zaimportuj repozytorium `matiqueue/rift-daily`.
+2. Ustaw **Root Directory** na `website`.
+3. Vercel automatycznie wykryje konfigurację Vite i wdroży stronę (np. pod adresem `riftdaily.vercel.app`).
+
+---
 
 ---
 
@@ -168,8 +215,10 @@ xcodebuild -workspace ios/RiftDaily.xcworkspace \
 
 ```text
 rift-daily/
+├── .github/workflows/           # GitHub Actions CI/CD (automatyczne budowanie Release APK na Androida)
 ├── assets/images/               # Ikona aplikacji Rift Daily (1024x1024) i grafiki splash
 ├── docs/assets/                 # Animowany baner SVG oraz prawdziwe zrzuty ekranu z aplikacji
+├── website/                     # Oficjalna strona internetowa (Vite + React 19 + Tailwind CSS)
 ├── src/
 │   ├── api/
 │   │   ├── installations.ts     # Katalog ponad 80 polskich uczelni (UKEN jako Top 1)
