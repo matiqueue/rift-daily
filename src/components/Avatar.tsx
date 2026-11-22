@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
@@ -16,21 +15,14 @@ interface AvatarProps {
   variant?: 'student' | 'teacher' | 'faculty';
 }
 
-const PORTRAIT_PALETTES: [string, string, string][] = [
-  ['#1E1B4B', '#312E81', '#818CF8'], // Indigo portrait
-  ['#064E3B', '#065F46', '#34D399'], // Emerald portrait
-  ['#3B0764', '#4C1D95', '#A78BFA'], // Violet portrait
-  ['#0C4A6E', '#075985', '#38BDF8'], // Sky portrait
-  ['#451A03', '#78350F', '#FBBF24'], // Amber portrait
-  ['#1E293B', '#334155', '#94A3B8'], // Slate portrait
-];
-
-function pickPalette(name: string): [string, string, string] {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return PORTRAIT_PALETTES[Math.abs(hash) % PORTRAIT_PALETTES.length];
+function getInitials(name: string): string {
+  const cleaned = (name || '')
+    .replace(/\b(dr|hab|prof|mgr|inż|lic|nadzw|zw|u[a-z]{1,4})\.?\b/gi, '')
+    .trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'RD';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 export function Avatar({
@@ -43,19 +35,9 @@ export function Avatar({
 }: AvatarProps) {
   const theme = useAppTheme();
   const [imgError, setImgError] = useState(false);
-  const borderRadius = Math.round(size * 0.34);
-  const [bgStart, bgEnd, accentColor] = pickPalette(name || 'Rift Daily');
+  const borderRadius = Math.round(size * 0.5);
   const showPhoto = Boolean(uri && !imgError);
-
-  const iconName: keyof typeof Ionicons.glyphMap =
-    variant === 'student'
-      ? 'person-outline'
-      : variant === 'faculty'
-      ? 'business-outline'
-      : 'school-outline';
-
-  const iconSize = Math.max(16, Math.round(size * 0.42));
-  const innerCircleSize = Math.round(size * 0.72);
+  const initials = getInitials(name);
 
   return (
     <View style={{ width: size, height: size, flexShrink: 0 }}>
@@ -66,7 +48,7 @@ export function Avatar({
             width: size,
             height: size,
             borderRadius,
-            backgroundColor: theme.isDark ? '#18181B' : '#E4E4E7',
+            backgroundColor: theme.bgSecondary,
             borderColor: borderColor || theme.cardBorder,
           },
         ]}>
@@ -76,37 +58,26 @@ export function Avatar({
             style={{ width: size, height: size, borderRadius }}
             contentFit="cover"
             contentPosition={variant === 'student' ? 'center' : 'top'}
-            transition={220}
+            transition={200}
             cachePolicy="memory-disk"
             onError={() => setImgError(true)}
           />
         ) : (
           <LinearGradient
-            colors={theme.isDark ? [bgStart, bgEnd] : [`${accentColor}20`, `${accentColor}38`]}
+            colors={theme.isDark ? ['#232329', '#141418'] : ['#EFEFF2', '#E2E2E7']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.fallback, { width: size, height: size, borderRadius }]}>
-            <View
+            <Text
               style={[
-                styles.centeredIconBubble,
+                styles.initialsText,
                 {
-                  width: innerCircleSize,
-                  height: innerCircleSize,
-                  borderRadius: Math.round(innerCircleSize / 2),
-                  backgroundColor: theme.isDark
-                    ? 'rgba(255,255,255,0.08)'
-                    : 'rgba(255,255,255,0.72)',
-                  borderColor: theme.isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : `${accentColor}35`,
+                  color: theme.textSecondary,
+                  fontSize: Math.max(9, Math.round(size * 0.34)),
                 },
               ]}>
-              <Ionicons
-                name={iconName}
-                size={iconSize}
-                color={theme.isDark ? '#FAFAFA' : accentColor}
-              />
-            </View>
+              {initials}
+            </Text>
           </LinearGradient>
         )}
       </View>
@@ -120,7 +91,7 @@ export function Avatar({
               borderColor: theme.cardBorder,
             },
           ]}>
-          <Text style={[styles.badgeText, { color: theme.accent }]} numberOfLines={1}>
+          <Text style={[styles.badgeText, { color: theme.text }]} numberOfLines={1}>
             {subtitleBadge}
           </Text>
         </View>
@@ -132,7 +103,7 @@ export function Avatar({
 const styles = StyleSheet.create({
   box: {
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -140,16 +111,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  centeredIconBubble: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
+  initialsText: {
+    fontFamily: MONO_FONT,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   badge: {
     position: 'absolute',
     bottom: -3,
     right: -4,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 6,
     paddingHorizontal: 4,
     paddingVertical: 1,

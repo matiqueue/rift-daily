@@ -1,4 +1,5 @@
 import { UsosTimetableActivity } from '@/api/types';
+import { AppTheme } from '@/theme/theme';
 
 export const DAY_NAMES_PL: Record<number, string> = {
   1: 'Poniedziałek',
@@ -20,9 +21,73 @@ export const DAY_SHORT_PL: Record<number, string> = {
   7: 'Ndz',
 };
 
-function parseMinutes(hhmm: string): number {
+export const DAY_TWO_LETTER_PL: Record<number, string> = {
+  1: 'PN',
+  2: 'WT',
+  3: 'ŚR',
+  4: 'CZ',
+  5: 'PT',
+  6: 'SB',
+  7: 'ND',
+};
+
+export const MONTHS_SHORT_PL = [
+  'STY',
+  'LUT',
+  'MAR',
+  'KWI',
+  'MAJ',
+  'CZE',
+  'LIP',
+  'SIE',
+  'WRZ',
+  'PAŹ',
+  'LIS',
+  'GRU',
+];
+
+export const MONTHS_GENITIVE_PL = [
+  'stycznia',
+  'lutego',
+  'marca',
+  'kwietnia',
+  'maja',
+  'czerwca',
+  'lipca',
+  'sierpnia',
+  'września',
+  'października',
+  'listopada',
+  'grudnia',
+];
+
+export const MONTHS_NOMINATIVE_PL = [
+  'Styczeń',
+  'Luty',
+  'Marzec',
+  'Kwiecień',
+  'Maj',
+  'Czerwiec',
+  'Lipiec',
+  'Sierpień',
+  'Wrzesień',
+  'Październik',
+  'Listopad',
+  'Grudzień',
+];
+
+export function parseMinutes(hhmm: string): number {
   const [h, m] = (hhmm || '00:00').split(':').map((v) => parseInt(v, 10));
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+export function formatDurationPl(minutes: number): string {
+  const safe = Math.max(0, Math.round(minutes));
+  const hrs = Math.floor(safe / 60);
+  const mins = safe % 60;
+  if (hrs === 0) return `${mins} min`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
 }
 
 export function parseLocalDate(dateStr?: string): Date | null {
@@ -32,7 +97,7 @@ export function parseLocalDate(dateStr?: string): Date | null {
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
-function parseLocalDateTime(dateStr: string | undefined, hhmm: string): Date | null {
+export function parseLocalDateTime(dateStr: string | undefined, hhmm: string): Date | null {
   const base = parseLocalDate(dateStr);
   if (!base) return null;
   const [h, m] = (hhmm || '00:00').split(':').map((v) => parseInt(v, 10));
@@ -52,6 +117,205 @@ export function formatShortDatePl(dateStr?: string): string {
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
 }
 
+export function formatPolishDateHeader(now: Date = new Date()): {
+  shortTag: string;
+  fullDate: string;
+} {
+  const jsDay = now.getDay();
+  const isoDay = jsDay === 0 ? 7 : jsDay;
+  const dayNum = now.getDate();
+  const monthIdx = now.getMonth();
+  return {
+    shortTag: `${DAY_SHORT_PL[isoDay].toUpperCase()}, ${dayNum} ${MONTHS_SHORT_PL[monthIdx]}`,
+    fullDate: `${DAY_NAMES_PL[isoDay]}, ${dayNum} ${MONTHS_GENITIVE_PL[monthIdx]}`,
+  };
+}
+
+export function getClassTypeShort(
+  classTypeId: UsosTimetableActivity['class_type_id'] | string
+): string {
+  switch (classTypeId) {
+    case 'W':
+      return 'WYK';
+    case 'CW':
+      return 'ĆW';
+    case 'LAB':
+      return 'LAB';
+    case 'PROJ':
+      return 'PROJ';
+    case 'SEM':
+      return 'SEM';
+    case 'LEK':
+      return 'LEK';
+    default:
+      return String(classTypeId || 'ZAJ').slice(0, 4).toUpperCase();
+  }
+}
+
+export function getClassTypeColor(
+  classTypeId: UsosTimetableActivity['class_type_id'] | string,
+  theme: AppTheme
+): string {
+  // Cohesive monochrome tonal scale: lectures brightest, labs/exercises medium, others quiet
+  switch (classTypeId) {
+    case 'W':
+      return theme.text;
+    case 'LAB':
+    case 'PROJ':
+      return theme.textSecondary;
+    case 'CW':
+    case 'SEM':
+    case 'LEK':
+    default:
+      return theme.textMuted;
+  }
+}
+
+export interface ClassTimingState {
+  status: 'past' | 'ongoing' | 'upcoming';
+  progressPercent: number;
+  durationMin: number;
+  remainingMin: number;
+  startsInMin: number;
+}
+
+export function getClassTimingState(
+  activity: UsosTimetableActivity,
+  now: Date = new Date()
+): ClassTimingState {
+  const startMin = parseMinutes(activity.start_time);
+  const endMin = parseMinutes(activity.end_time);
+  const durationMin = Math.max(15, endMin - startMin);
+
+  const startDt = parseLocalDateTime(activity.date, activity.start_time);
+  const endDt = parseLocalDateTime(activity.date, activity.end_time);
+
+  if (startDt && endDt) {
+    const nowMs = now.getTime();
+    const startMs = startDt.getTime();
+    const endMs = endDt.getTime();
+
+    if (nowMs >= endMs) {
+      return {
+        status: 'past',
+        progressPercent: 100,
+        durationMin,
+        remainingMin: 0,
+        startsInMin: 0,
+      };
+    }
+    if (nowMs >= startMs && nowMs < endMs) {
+      const total = Math.max(60_000, endMs - startMs);
+      const elapsed = Math.max(0, nowMs - startMs);
+      return {
+        status: 'ongoing',
+        progressPercent: Math.min(100, Math.max(4, Math.round((elapsed / total) * 100))),
+        durationMin,
+        remainingMin: Math.max(1, Math.round((endMs - nowMs) / 60_000)),
+        startsInMin: 0,
+      };
+    }
+    return {
+      status: 'upcoming',
+      progressPercent: 0,
+      durationMin,
+      remainingMin: durationMin,
+      startsInMin: Math.max(1, Math.round((startMs - nowMs) / 60_000)),
+    };
+  }
+
+  // Fallback without explicit calendar date
+  const jsDay = now.getDay();
+  const currentIsoDay = jsDay === 0 ? 7 : jsDay;
+  const currentMin = now.getHours() * 60 + now.getMinutes();
+
+  if (
+    activity.day_of_week < currentIsoDay ||
+    (activity.day_of_week === currentIsoDay && currentMin >= endMin)
+  ) {
+    return {
+      status: 'past',
+      progressPercent: 100,
+      durationMin,
+      remainingMin: 0,
+      startsInMin: 0,
+    };
+  }
+  if (
+    activity.day_of_week === currentIsoDay &&
+    currentMin >= startMin &&
+    currentMin < endMin
+  ) {
+    return {
+      status: 'ongoing',
+      progressPercent: Math.min(
+        100,
+        Math.max(4, Math.round(((currentMin - startMin) / durationMin) * 100))
+      ),
+      durationMin,
+      remainingMin: Math.max(1, endMin - currentMin),
+      startsInMin: 0,
+    };
+  }
+
+  return {
+    status: 'upcoming',
+    progressPercent: 0,
+    durationMin,
+    remainingMin: durationMin,
+    startsInMin:
+      activity.day_of_week === currentIsoDay ? Math.max(1, startMin - currentMin) : 0,
+  };
+}
+
+export function getGapMinutes(
+  prev: UsosTimetableActivity,
+  next: UsosTimetableActivity
+): number {
+  if (prev.date && next.date && prev.date !== next.date) return 0;
+  if (prev.day_of_week !== next.day_of_week) return 0;
+  return Math.max(0, parseMinutes(next.start_time) - parseMinutes(prev.end_time));
+}
+
+export interface WeekDayCell {
+  dayOfWeek: number; // 1..7
+  dateIso: string;
+  dayNum: number;
+  monthNum: number;
+  shortPl: string;
+  twoLetterPl: string;
+  fullPl: string;
+  isToday: boolean;
+}
+
+export function getWeekDaysForOffset(
+  weekOffset: number,
+  now: Date = new Date()
+): WeekDayCell[] {
+  const jsDay = now.getDay();
+  // Matches useUsosStore.getMondayForWeekOffset so dates align with API timetable week
+  const diffToMonday = (jsDay === 0 ? 1 : 1 - jsDay) + weekOffset * 7;
+  const todayIso = toLocalIsoDate(now);
+  const cells: WeekDayCell[] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday + i);
+    const dayOfWeek = i + 1;
+    const dateIso = toLocalIsoDate(d);
+    cells.push({
+      dayOfWeek,
+      dateIso,
+      dayNum: d.getDate(),
+      monthNum: d.getMonth() + 1,
+      shortPl: DAY_SHORT_PL[dayOfWeek],
+      twoLetterPl: DAY_TWO_LETTER_PL[dayOfWeek],
+      fullPl: DAY_NAMES_PL[dayOfWeek],
+      isToday: dateIso === todayIso,
+    });
+  }
+  return cells;
+}
+
 export interface NextClassHighlight {
   activity: UsosTimetableActivity;
   afterActivity: UsosTimetableActivity | null;
@@ -61,6 +325,7 @@ export interface NextClassHighlight {
   countdownLabel: string;
   dayNamePl: string;
   daySchedule: UsosTimetableActivity[];
+  progressPercent: number;
 }
 
 export function getNextClassHighlight(
@@ -142,6 +407,7 @@ export function getNextClassHighlight(
   const endDt = parseLocalDateTime(activity.date, activity.end_time);
   const dayNamePl = DAY_NAMES_PL[activity.day_of_week] || 'Dzień zajęć';
   const shortDate = formatShortDatePl(activity.date);
+  const timing = getClassTimingState(activity, now);
 
   let isToday = false;
   let statusBadge = '';
@@ -153,27 +419,27 @@ export function getNextClassHighlight(
 
     if (isOngoing) {
       const remainingMin = Math.max(1, Math.round((endDt.getTime() - nowMs) / 60000));
-      statusBadge = `TRWA TERAZ • DO ${activity.end_time}`;
+      statusBadge = `TRWA • DO ${activity.end_time}`;
       countdownLabel = `Koniec za ${remainingMin} min`;
     } else if (daysAhead === 0 && startDt.getTime() > nowMs) {
       const diffMin = Math.max(1, Math.round((startDt.getTime() - nowMs) / 60000));
       if (diffMin < 60) {
-        statusBadge = `ZA ${diffMin} MIN • ${activity.start_time}`;
-        countdownLabel = `Rozpoczęcie dziś o ${activity.start_time}`;
+        statusBadge = `ZA ${diffMin} MIN`;
+        countdownLabel = `Dziś o ${activity.start_time}`;
       } else {
         const hrs = Math.floor(diffMin / 60);
         const mins = diffMin % 60;
         statusBadge = `DZIŚ • ${activity.start_time}`;
-        countdownLabel = mins > 0 ? `Start za ${hrs} godz. ${mins} min` : `Start za ${hrs} godz.`;
+        countdownLabel = mins > 0 ? `Za ${hrs}h ${mins}m` : `Za ${hrs}h`;
       }
     } else if (daysAhead === 1) {
       statusBadge = `JUTRO • ${activity.start_time}`;
       countdownLabel = `${dayNamePl}, ${activity.start_time}–${activity.end_time}`;
     } else if (daysAhead > 1) {
-      statusBadge = `${dayNamePl.toUpperCase()} ${shortDate} • ${activity.start_time}`;
-      countdownLabel = `Za ${daysAhead} dni • ${dayNamePl} (${shortDate})`;
+      statusBadge = `${dayNamePl.toUpperCase()} ${shortDate}`;
+      countdownLabel = `Za ${daysAhead} dni • ${activity.start_time}`;
     } else {
-      statusBadge = `${dayNamePl.toUpperCase()} ${shortDate} • ${activity.start_time}`;
+      statusBadge = `${dayNamePl.toUpperCase()} ${shortDate}`;
       countdownLabel = `${dayNamePl} (${shortDate})`;
     }
   } else {
@@ -183,18 +449,18 @@ export function getNextClassHighlight(
 
     if (isOngoing) {
       const remainingMin = Math.max(1, endMin - currentMinutes);
-      statusBadge = `TRWA TERAZ • DO ${activity.end_time}`;
+      statusBadge = `TRWA • DO ${activity.end_time}`;
       countdownLabel = `Koniec za ${remainingMin} min`;
     } else if (isToday) {
       const diffMin = Math.max(1, startMin - currentMinutes);
       if (diffMin < 60) {
-        statusBadge = `ZA ${diffMin} MIN • ${activity.start_time}`;
-        countdownLabel = `Rozpoczęcie dziś o ${activity.start_time}`;
+        statusBadge = `ZA ${diffMin} MIN`;
+        countdownLabel = `Dziś o ${activity.start_time}`;
       } else {
         const hrs = Math.floor(diffMin / 60);
         const mins = diffMin % 60;
         statusBadge = `DZIŚ • ${activity.start_time}`;
-        countdownLabel = mins > 0 ? `Start za ${hrs} godz. ${mins} min` : `Start za ${hrs} godz.`;
+        countdownLabel = mins > 0 ? `Za ${hrs}h ${mins}m` : `Za ${hrs}h`;
       }
     } else {
       const daysAhead = wrappedWithoutDates
@@ -222,5 +488,6 @@ export function getNextClassHighlight(
     countdownLabel,
     dayNamePl,
     daySchedule,
+    progressPercent: isOngoing ? timing.progressPercent : 0,
   };
 }

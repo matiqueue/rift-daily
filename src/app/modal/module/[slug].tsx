@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,8 +21,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { UsosStaffMember } from '@/api/types';
+import { AmbientBackdrop } from '@/components/AmbientBackdrop';
 import { Avatar } from '@/components/Avatar';
-import { GlassCard } from '@/components/GlassCard';
+import { GlassSurface } from '@/components/GlassSurface';
+import { ScrambleText } from '@/components/KineticText';
+import { SectionHeader } from '@/components/SectionHeader';
 import { UniversityIcon } from '@/components/UniversityIcon';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
@@ -29,15 +33,15 @@ import { MONO_FONT } from '@/theme/theme';
 
 const MODULE_TITLES: Record<string, { title: string; category: string }> = {
   mcard: {
-    title: 'Elektroniczna Legitymacja (ELS)',
-    category: 'DOKUMENT STUDENCKI',
+    title: 'Elektroniczna Legitymacja',
+    category: 'DOKUMENT STUDENCKI · ELS',
   },
   exams: {
-    title: 'Sesja i Zapisy na Egzaminy',
+    title: 'Egzaminy i Sesja',
     category: 'SESJA EGZAMINACYJNA',
   },
   payments: {
-    title: 'Płatności i Konto Uczelniane',
+    title: 'Płatności i Konto IBAN',
     category: 'FINANSE I RATY',
   },
   registrations: {
@@ -49,15 +53,15 @@ const MODULE_TITLES: Record<string, { title: string; category: string }> = {
     category: 'OCENA DYDAKTYKI',
   },
   staff: {
-    title: 'Twoi Wykładowcy i Katalog Kadry',
-    category: 'KADRA AKADEMICKA',
+    title: 'Wykładowcy i Kadra',
+    category: 'KATALOG AKADEMICKI',
   },
   buildings: {
-    title: 'Budynki i Kampus Uczelni',
+    title: 'Budynki i Kampus',
     category: 'MAPA KAMPUSU',
   },
   thesis: {
-    title: 'Dyplom (APD), Akademik i Obiegówka',
+    title: 'Dyplom (APD) i Sprawy',
     category: 'SPRAWY STUDENCKIE',
   },
 };
@@ -84,12 +88,13 @@ export default function ModuleScreenModal() {
   const dorm = useUsosStore((s) => s.dorm);
   const slips = useUsosStore((s) => s.slips);
 
-  // Staff search state
   const [staffQuery, setStaffQuery] = useState('');
-  const [staffResults, setStaffResults] = useState<UsosStaffMember[]>(staff);
-  const [isSearchingStaff, setIsSearchingStaff] = useState(false);
+  const [remoteStaffHit, setRemoteStaffHit] = useState<{
+    query: string;
+    items: UsosStaffMember[];
+  } | null>(null);
+  const [searchingQuery, setSearchingQuery] = useState<string | null>(null);
 
-  // Survey active state
   const [activeSurveyId, setActiveSurveyId] = useState<string | null>(null);
   const [surveyRating, setSurveyRating] = useState<number>(5);
   const [surveyComment, setSurveyComment] = useState<string>('');
@@ -102,46 +107,26 @@ export default function ModuleScreenModal() {
       return a.name.localeCompare(b.name, 'pl');
     });
 
-  useEffect(() => {
-    setStaffResults(sortPhotoFirst(staff));
-  }, [staff]);
+  const normalizedQuery = staffQuery.trim().toLowerCase();
 
   useEffect(() => {
-    const q = staffQuery.trim().toLowerCase();
-    if (!q) {
-      setStaffResults(sortPhotoFirst(staff));
-      setIsSearchingStaff(false);
-      return;
-    }
-
-    // Immediate local filter so typing feels instant
-    const localHits = sortPhotoFirst(
-      staff.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.titles.toLowerCase().includes(q) ||
-          s.faculty.toLowerCase().includes(q) ||
-          s.building.toLowerCase().includes(q) ||
-          (s.email || '').toLowerCase().includes(q) ||
-          (s.courses_taught || []).some((c) => c.toLowerCase().includes(q))
-      )
-    );
-    setStaffResults(localHits);
-
-    if (q.length < 2) {
-      setIsSearchingStaff(false);
+    if (normalizedQuery.length < 2) {
       return;
     }
 
     let cancelled = false;
-    setIsSearchingStaff(true);
     const timer = setTimeout(() => {
+      setSearchingQuery(normalizedQuery);
       searchStaffLive(staffQuery)
         .then((res) => {
-          if (!cancelled) setStaffResults(sortPhotoFirst(res));
+          if (!cancelled) {
+            setRemoteStaffHit({ query: normalizedQuery, items: sortPhotoFirst(res) });
+          }
         })
         .finally(() => {
-          if (!cancelled) setIsSearchingStaff(false);
+          if (!cancelled) {
+            setSearchingQuery((curr) => (curr === normalizedQuery ? null : curr));
+          }
         });
     }, 280);
 
@@ -149,7 +134,27 @@ export default function ModuleScreenModal() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [staffQuery, searchStaffLive, staff]);
+  }, [normalizedQuery, staffQuery, searchStaffLive]);
+
+  const isSearchingStaff = normalizedQuery.length >= 2 && searchingQuery === normalizedQuery;
+
+  const staffResults = useMemo(() => {
+    if (!normalizedQuery) return sortPhotoFirst(staff);
+    if (remoteStaffHit && remoteStaffHit.query === normalizedQuery) {
+      return remoteStaffHit.items;
+    }
+    return sortPhotoFirst(
+      staff.filter(
+        (s) =>
+          s.name.toLowerCase().includes(normalizedQuery) ||
+          s.titles.toLowerCase().includes(normalizedQuery) ||
+          s.faculty.toLowerCase().includes(normalizedQuery) ||
+          s.building.toLowerCase().includes(normalizedQuery) ||
+          (s.email || '').toLowerCase().includes(normalizedQuery) ||
+          (s.courses_taught || []).some((c) => c.toLowerCase().includes(normalizedQuery))
+      )
+    );
+  }, [normalizedQuery, remoteStaffHit, staff]);
 
   const meta = MODULE_TITLES[slug || 'mcard'] || MODULE_TITLES.mcard;
 
@@ -160,499 +165,433 @@ export default function ModuleScreenModal() {
   };
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
-      {/* Modal Header */}
-      <View style={[styles.header, { borderBottomColor: theme.separator }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
-            {meta.title}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.closeBtn, { backgroundColor: theme.cardElevated }]}>
-          <Ionicons name="close" size={20} color={theme.text} />
-        </Pressable>
-      </View>
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      <AmbientBackdrop variant="more" />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 1. mCARD / ELS with Real Photo & Real Card Data */}
-        {slug === 'mcard' && (
-          <>
-            <GlassCard elevated padding={20} style={styles.elsCard}>
-              <View style={styles.elsTopRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                  <UniversityIcon installation={selectedInstallation} size={38} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.elsCountry, { color: theme.textSecondary }]}>
-                      RIFT DAILY // LEGITYMACJA STUDENCKA
+      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+        {/* Modal Header */}
+        <View style={[styles.header, { borderBottomColor: theme.separator }]}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <ScrambleText
+              text={meta.category}
+              durationMs={260}
+              style={[styles.categoryMono, { color: theme.accent }]}
+            />
+            <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+              {meta.title}
+            </Text>
+          </View>
+          <GlassSurface
+            radius={16}
+            interactive
+            accessibilityLabel="Zamknij"
+            onPress={() => router.back()}
+            contentStyle={styles.closeBtn}>
+            <Ionicons name="close" size={18} color={theme.text} />
+          </GlassSurface>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* 1. mCARD / ELS — Authentic Liquid Glass Pass (the ONE card that should be a pass!) */}
+          {slug === 'mcard' && (
+            <>
+              <GlassSurface
+                radius={22}
+                tintColor={
+                  theme.isDark ? 'rgba(28, 28, 34, 0.56)' : 'rgba(255, 255, 255, 0.72)'
+                }
+                style={styles.elsOuter}>
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={
+                    theme.isDark
+                      ? ['rgba(255, 255, 255, 0.14)', 'rgba(255, 255, 255, 0.03)', 'rgba(9, 9, 11, 0)']
+                      : ['rgba(9, 9, 11, 0.06)', 'rgba(9, 9, 11, 0.02)', 'rgba(255, 255, 255, 0)']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.elsInner}>
+                  <View style={styles.elsTopRow}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <UniversityIcon installation={selectedInstallation} size={36} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.elsOverline, { color: theme.accent }]}>
+                          LEGITYMACJA STUDENCKA · ELS
+                        </Text>
+                        <Text style={[styles.elsUniName, { color: theme.text }]} numberOfLines={2}>
+                          {selectedInstallation.namePl}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: theme.successSoft }]}>
+                      <Ionicons name="shield-checkmark" size={12} color={theme.success} />
+                      <Text style={[styles.statusBadgeText, { color: theme.success }]}>
+                        {studentCard?.expiration_date
+                          ? `WAŻNA ${studentCard.expiration_date}`
+                          : 'AKTYWNA'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.elsBodyRow}>
+                    <Avatar
+                      name={`${user.first_name} ${user.last_name}`}
+                      uri={user.photo_url}
+                      size={70}
+                      borderColor={theme.accent}
+                      variant="student"
+                    />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={[styles.elsStudentName, { color: theme.text }]}>
+                        {user.first_name} {user.last_name}
+                      </Text>
+                      <Text style={[styles.monoSub, { color: theme.accent }]}>
+                        Nr albumu #{user.student_number}
+                      </Text>
+                      <Text
+                        style={[styles.bodyMuted, { color: theme.textSecondary }]}
+                        numberOfLines={2}>
+                        {user.programmes[0]?.name.pl || selectedInstallation.namePl}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.elsFooter, { borderTopColor: theme.separator }]}>
+                    <Text style={[styles.monoSub, { color: theme.textSecondary }]}>
+                      {studentCard?.barcode_number
+                        ? `ELS #${studentCard.barcode_number}`
+                        : `USOS ID #${user.id || user.student_number}`}
                     </Text>
-                    <Text style={[styles.elsUniName, { color: theme.text }]} numberOfLines={2}>
-                      {selectedInstallation.namePl}
-                    </Text>
+                    <Ionicons name="wifi" size={16} color={theme.textSecondary} />
                   </View>
                 </View>
-                <View style={[styles.elsHoloBadge, { backgroundColor: theme.successSoft }]}>
-                  <Ionicons name="shield-checkmark" size={14} color={theme.success} />
-                  <Text style={[styles.elsHoloText, { color: theme.success }]}>
-                    {studentCard?.expiration_date
-                      ? `WAŻNA ${studentCard.expiration_date}`
-                      : 'AKTYWNA'}
-                  </Text>
-                </View>
-              </View>
+              </GlassSurface>
 
-              <View style={styles.elsBodyRow}>
-                <Avatar
-                  name={`${user.first_name} ${user.last_name}`}
-                  uri={user.photo_url}
-                  size={74}
-                  borderColor={theme.cardBorder}
-                />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text style={[styles.elsStudentName, { color: theme.text }]}>
-                    {user.first_name} {user.last_name}
-                  </Text>
-                  <Text style={[styles.elsMeta, { color: theme.textSecondary }]}>
-                    Nr albumu: #{user.student_number}
-                  </Text>
-                  <Text
-                    style={[styles.elsMeta, { color: theme.textSecondary }]}
-                    numberOfLines={2}>
-                    {user.programmes[0]?.name.pl || selectedInstallation.namePl}
-                  </Text>
-                  <Text style={[styles.elsMeta, { color: theme.textSecondary }]}>
-                    Status: {user.student_status === 2 ? 'Aktywny student' : 'Student'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.elsFooter, { borderTopColor: theme.separator }]}>
-                <Text style={[styles.elsChipText, { color: theme.textSecondary }]}>
-                  {studentCard?.barcode_number
-                    ? `KARTA ELS #${studentCard.barcode_number}`
-                    : `ID STUDENTA USOS #${user.id || user.student_number}`}
+              {/* Open QR Verification Section (Zero box!) */}
+              <View style={styles.qrOpenSection}>
+                <Ionicons name="qr-code" size={132} color={theme.text} />
+                <Text style={[styles.rowTitle, { color: theme.text, textAlign: 'center' }]}>
+                  Kod identyfikacyjny ({user.student_number})
                 </Text>
-                <Ionicons name="wifi" size={18} color={theme.textSecondary} />
+                <Text style={[styles.bodyMuted, { color: theme.textSecondary, textAlign: 'center' }]}>
+                  {studentCard?.barcode_number
+                    ? `Kod kreskowy karty: ${studentCard.barcode_number}`
+                    : 'Dane zsynchronizowane bezpośrednio z uczelnią.'}
+                </Text>
               </View>
-            </GlassCard>
+            </>
+          )}
 
-            <GlassCard style={styles.qrCard}>
-              <View style={styles.qrBox}>
-                <Ionicons name="qr-code" size={136} color={theme.text} />
+          {/* 2. EXAMS — Flat Hairline Rows */}
+          {slug === 'exams' &&
+            (exams.length === 0 ? (
+              <View style={styles.emptyBlock}>
+                <Ionicons name="calendar-clear-outline" size={30} color={theme.textMuted} />
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                  Brak aktywnych zapisów na egzaminy
+                </Text>
+                <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+                  W systemie USOS nie ma obecnie otwartych rejestracji na terminy egzaminacyjne.
+                </Text>
               </View>
-              <Text style={[styles.qrTitle, { color: theme.text }]}>
-                Kod identyfikacyjny studenta ({user.student_number})
-              </Text>
-              <Text style={[styles.qrSub, { color: theme.textSecondary }]}>
-                {studentCard?.barcode_number
-                  ? `Numer kodu kreskowego karty: ${studentCard.barcode_number}`
-                  : 'Dane pobrane bezpośrednio z uczelni.'}
-              </Text>
-            </GlassCard>
-          </>
-        )}
+            ) : (
+              exams.map((ex, idx) => (
+                <View
+                  key={ex.id}
+                  style={[
+                    styles.itemBlock,
+                    idx < exams.length - 1 && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: theme.separator,
+                    },
+                  ]}>
+                  <View style={styles.rowBetween}>
+                    <Text
+                      style={[
+                        styles.monoTag,
+                        { color: ex.is_registered ? theme.success : theme.warning },
+                      ]}>
+                      {ex.is_registered ? '● ZAPISANY' : '○ OTWARTE ZAPISY'}
+                    </Text>
+                    <Text style={[styles.monoSub, { color: theme.accent }]}>
+                      T{ex.term_number} · {ex.date} · {ex.time}
+                    </Text>
+                  </View>
 
-        {/* 2. EXAMS */}
-        {slug === 'exams' &&
-          (exams.length === 0 ? (
-            <GlassCard style={styles.emptyCard}>
-              <Ionicons name="calendar-clear-outline" size={36} color={theme.primary} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                Brak aktywnych zapisów na egzaminy
-              </Text>
-              <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                W systemie USOS nie ma obecnie otwartych rejestracji na terminy egzaminacyjne dla
-                Twojego konta.
-              </Text>
-            </GlassCard>
-          ) : (
-            exams.map((ex) => (
-              <GlassCard key={ex.id} style={{ gap: 10 }}>
-                <View style={styles.rowBetween}>
-                  <View
-                    style={[
-                      styles.pillBadge,
+                  <Text style={[styles.itemTitle, { color: theme.text }]}>{ex.course_name}</Text>
+                  <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                    {ex.type} · Sala {ex.room} ({ex.building}) · {ex.examiner}
+                  </Text>
+
+                  <Pressable
+                    onPress={() => {
+                      hapticTap();
+                      toggleExamRegistration(ex.id);
+                    }}
+                    style={({ pressed }) => [
+                      styles.inlineActionBtn,
                       {
-                        backgroundColor: ex.is_registered
-                          ? theme.successSoft
-                          : theme.warningSoft,
+                        backgroundColor: ex.is_registered ? theme.dangerSoft : theme.accent,
+                        opacity: pressed ? 0.8 : 1,
                       },
                     ]}>
                     <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: '800',
-                        color: ex.is_registered ? theme.success : theme.warning,
-                      }}>
-                      {ex.is_registered ? 'ZAPISANY NA TERMIN' : 'OTWARTE ZAPISY'}
+                      style={[
+                        styles.inlineActionText,
+                        { color: ex.is_registered ? theme.danger : theme.primaryContrast },
+                      ]}>
+                      {ex.is_registered ? 'Wypisz się z terminu' : 'Zapisz się na termin'}
                     </Text>
-                  </View>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.primary }}>
-                    Termin {ex.term_number} • {ex.date}
-                  </Text>
+                  </Pressable>
                 </View>
+              ))
+            ))}
 
-                <Text style={[styles.itemTitle, { color: theme.text }]}>{ex.course_name}</Text>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: theme.accent }}>
-                  {ex.type} • Godz. {ex.time}
-                </Text>
-
-                <View style={styles.metaStack}>
-                  <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                    Sala: <Text style={{ color: theme.text, fontWeight: '700' }}>{ex.room}</Text> (
-                    {ex.building})
-                  </Text>
-                  <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                    Egzaminator: {ex.examiner}
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={() => {
-                    hapticTap();
-                    toggleExamRegistration(ex.id);
-                  }}
-                  style={[
-                    styles.actionBtn,
-                    {
-                      backgroundColor: ex.is_registered ? theme.dangerSoft : theme.primary,
-                    },
-                  ]}>
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: '800',
-                      color: ex.is_registered ? theme.danger : theme.primaryContrast,
-                    }}>
-                    {ex.is_registered
-                      ? 'Wypisz się z terminu egzaminu'
-                      : 'Zapisz się na termin egzaminu'}
-                  </Text>
-                </Pressable>
-              </GlassCard>
-            ))
-          ))}
-
-        {/* 3. PAYMENTS */}
-        {slug === 'payments' && (
-          <>
-            {bankAccount && (
-              <GlassCard elevated style={{ gap: 10 }}>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.smallTag, { color: theme.accent }]}>
-                    INDYWIDUALNE KONTO WPŁAT STUDENTA (IBAN)
-                  </Text>
-                  <View style={[styles.pillBadge, { backgroundColor: theme.accentSoft }]}>
-                    <Text
-                      style={{
-                        fontFamily: MONO_FONT,
-                        fontSize: 9,
-                        fontWeight: '800',
-                        color: theme.accent,
-                      }}>
+          {/* 3. PAYMENTS — Slim IBAN Strip + Flat Hairline Rows */}
+          {slug === 'payments' && (
+            <>
+              {bankAccount && (
+                <View style={[styles.ibanSection, { borderBottomColor: theme.separator }]}>
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.monoTag, { color: theme.accent }]}>
+                      INDYWIDUALNY RACHUNEK WPŁAT (IBAN)
+                    </Text>
+                    <Text style={[styles.monoSub, { color: theme.textMuted }]}>
                       {bankAccount.currency || 'PLN'}
                     </Text>
                   </View>
-                </View>
 
-                <Text style={[styles.ibanText, { color: theme.text }]} selectable>
-                  {bankAccount.account_number}
-                </Text>
+                  <Text style={[styles.ibanBig, { color: theme.text }]} selectable>
+                    {bankAccount.account_number}
+                  </Text>
+                  <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                    Odbiorca: {bankAccount.account_owner}
+                  </Text>
 
-                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                  Odbiorca: <Text style={{ color: theme.text, fontWeight: '700' }}>{bankAccount.account_owner}</Text>
-                </Text>
-
-                <View style={styles.paymentActionsRow}>
-                  <Pressable
-                    onPress={async () => {
-                      hapticTap();
-                      await Clipboard.setStringAsync(bankAccount.account_number);
-                      Alert.alert(
-                        'Skopiowano numer konta!',
-                        `Numer IBAN (${bankAccount.account_number}) został skopiowany do schowka.`
-                      );
-                    }}
-                    style={[
-                      styles.copyIbanBtn,
-                      {
-                        flex: 1,
-                        backgroundColor: theme.bgSecondary,
-                        borderColor: theme.cardBorder,
-                        borderWidth: 1,
-                      },
-                    ]}>
-                    <Ionicons name="copy-outline" size={16} color={theme.text} />
-                    <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12 }}>
-                      Kopiuj numer konta
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={async () => {
-                      hapticTap();
-                      const usosWebBase = selectedInstallation.baseUrl.replace(
-                        'usosapps.',
-                        'usosweb.'
-                      );
-                      const payUrl = `${usosWebBase}kontroler.php?_action=home/platnosci/index`;
-                      await WebBrowser.openBrowserAsync(payUrl);
-                    }}
-                    style={[
-                      styles.copyIbanBtn,
-                      {
-                        flex: 1,
-                        backgroundColor: theme.accent,
-                      },
-                    ]}>
-                    <Ionicons name="card-outline" size={16} color="#FFFFFF" />
-                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 12 }}>
-                      Przelew USOSweb
-                    </Text>
-                  </Pressable>
-                </View>
-              </GlassCard>
-            )}
-
-            {payments.length === 0 ? (
-              <GlassCard style={styles.emptyCard}>
-                <Ionicons name="checkmark-done-circle-outline" size={36} color={theme.success} />
-                <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                  Brak naliczonych opłat — saldo 0,00 PLN
-                </Text>
-                <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                  Na Twoim koncie USOS nie ma żadnych zaległych płatności ani rat.
-                </Text>
-              </GlassCard>
-            ) : (
-              payments.map((p) => {
-                const isScholarship = p.status === 'incoming_scholarship';
-                const isPaid = p.status === 'paid';
-                const targetIban = p.account_iban || bankAccount?.account_number || '';
-
-                return (
-                  <GlassCard key={p.id} style={{ gap: 10 }}>
-                    <View style={styles.rowBetween}>
-                      <View
-                        style={[
-                          styles.pillBadge,
-                          {
-                            backgroundColor: isScholarship
-                              ? theme.successSoft
-                              : isPaid
-                              ? theme.successSoft
-                              : theme.warningSoft,
-                          },
-                        ]}>
-                        <Text
-                          style={{
-                            fontFamily: MONO_FONT,
-                            fontSize: 10,
-                            fontWeight: '800',
-                            color: isScholarship
-                              ? theme.success
-                              : isPaid
-                              ? theme.success
-                              : theme.warning,
-                          }}>
-                          {isScholarship
-                            ? 'STYPENDIUM'
-                            : isPaid
-                            ? 'OPŁACONO'
-                            : 'RATA / DO ZAPŁATY'}
-                        </Text>
-                      </View>
-                      <Text
-                        style={{
-                          fontFamily: MONO_FONT,
-                          fontSize: 20,
-                          fontWeight: '900',
-                          color: isScholarship
-                            ? theme.success
-                            : isPaid
-                            ? theme.text
-                            : theme.warning,
-                        }}>
-                        {isScholarship ? '+' : ''}
-                        {p.amount.toFixed(2)} {p.currency}
+                  <View style={styles.actionRow}>
+                    <GlassSurface
+                      radius={10}
+                      interactive
+                      onPress={async () => {
+                        await Clipboard.setStringAsync(bankAccount.account_number);
+                        Alert.alert('Skopiowano numer konta', bankAccount.account_number);
+                      }}
+                      style={{ flex: 1 }}
+                      contentStyle={styles.glassBtnInner}>
+                      <Ionicons name="copy-outline" size={14} color={theme.text} />
+                      <Text style={[styles.inlineActionText, { color: theme.text }]}>
+                        Kopiuj IBAN
                       </Text>
-                    </View>
+                    </GlassSurface>
 
-                    <Text style={[styles.itemTitle, { color: theme.text }]}>{p.title}</Text>
-
-                    <View style={styles.rowBetween}>
-                      <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                        Termin płatności:{' '}
-                        <Text style={{ fontFamily: MONO_FONT, color: theme.text, fontWeight: '700' }}>
-                          {p.due_date}
-                        </Text>
+                    <Pressable
+                      onPress={async () => {
+                        hapticTap();
+                        const usosWebBase = selectedInstallation.baseUrl.replace(
+                          'usosapps.',
+                          'usosweb.'
+                        );
+                        await WebBrowser.openBrowserAsync(
+                          `${usosWebBase}kontroler.php?_action=home/platnosci/index`
+                        );
+                      }}
+                      style={({ pressed }) => [
+                        styles.primaryCompactBtn,
+                        { flex: 1, backgroundColor: theme.accent, opacity: pressed ? 0.8 : 1 },
+                      ]}>
+                      <Ionicons name="card-outline" size={14} color={theme.primaryContrast} />
+                      <Text style={[styles.inlineActionText, { color: theme.primaryContrast }]}>
+                        USOSweb
                       </Text>
-                      {p.total_amount && p.total_amount > 0 ? (
-                        <Text style={{ fontFamily: MONO_FONT, fontSize: 11, color: theme.textMuted }}>
-                          Kwota raty: {p.total_amount.toFixed(2)} {p.currency}
-                        </Text>
-                      ) : null}
-                    </View>
-
-                    {targetIban ? (
-                      <View
-                        style={[
-                          styles.ibanInlineStrip,
-                          {
-                            backgroundColor: theme.bgSecondary,
-                            borderColor: theme.cardBorder,
-                          },
-                        ]}>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text
-                            style={{
-                              fontFamily: MONO_FONT,
-                              fontSize: 9,
-                              fontWeight: '800',
-                              color: theme.textMuted,
-                            }}>
-                            KONTO DO WPŁATY (KLIKNIJ ABY SKOPIOWAĆ)
-                          </Text>
-                          <Text
-                            style={{
-                              fontFamily: MONO_FONT,
-                              fontSize: 12,
-                              fontWeight: '700',
-                              color: theme.text,
-                              marginTop: 2,
-                            }}
-                            numberOfLines={1}>
-                            {targetIban}
-                          </Text>
-                        </View>
-                        <Pressable
-                          onPress={async () => {
-                            hapticTap();
-                            await Clipboard.setStringAsync(targetIban);
-                            Alert.alert('Skopiowano!', `Skopiowano numer konta:\n${targetIban}`);
-                          }}
-                          style={[styles.miniCopyBtn, { backgroundColor: theme.card }]}>
-                          <Ionicons name="copy-outline" size={14} color={theme.accent} />
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: theme.accent }}>
-                            Kopiuj
-                          </Text>
-                        </Pressable>
-                      </View>
-                    ) : null}
-
-                    {!isPaid && !isScholarship && (
-                      <View style={styles.paymentActionsRow}>
-                        <Pressable
-                          onPress={async () => {
-                            hapticTap();
-                            const transferText = `Odbiorca: ${
-                              bankAccount?.account_owner || selectedInstallation.namePl
-                            }\nRachunek IBAN: ${targetIban}\nKwota: ${p.amount.toFixed(2)} ${
-                              p.currency
-                            }\nTytuł przelewu: ${p.title} (Album #${user.student_number})`;
-                            await Clipboard.setStringAsync(targetIban || transferText);
-                            await Share.share({
-                              title: `Przelew USOS: ${p.title}`,
-                              message: transferText,
-                            }).catch(() => {});
-                          }}
-                          style={[
-                            styles.copyIbanBtn,
-                            {
-                              flex: 1,
-                              backgroundColor: theme.bgSecondary,
-                              borderColor: theme.cardBorder,
-                              borderWidth: 1,
-                            },
-                          ]}>
-                          <Ionicons name="share-outline" size={15} color={theme.text} />
-                          <Text style={{ color: theme.text, fontWeight: '800', fontSize: 12 }}>
-                            Dane do banku
-                          </Text>
-                        </Pressable>
-
-                        <Pressable
-                          onPress={async () => {
-                            hapticTap();
-                            const usosWebBase = selectedInstallation.baseUrl.replace(
-                              'usosapps.',
-                              'usosweb.'
-                            );
-                            const payUrl = `${usosWebBase}kontroler.php?_action=home/platnosci/index`;
-                            await WebBrowser.openBrowserAsync(payUrl);
-                          }}
-                          style={[
-                            styles.copyIbanBtn,
-                            {
-                              flex: 1.25,
-                              backgroundColor: theme.primary,
-                            },
-                          ]}>
-                          <Ionicons
-                            name="flash-outline"
-                            size={15}
-                            color={theme.primaryContrast}
-                          />
-                          <Text
-                            style={{
-                              color: theme.primaryContrast,
-                              fontWeight: '800',
-                              fontSize: 12,
-                            }}>
-                            Opłać bezpośrednio
-                          </Text>
-                        </Pressable>
-                      </View>
-                    )}
-                  </GlassCard>
-                );
-              })
-            )}
-          </>
-        )}
-
-        {/* 4. REGISTRATIONS */}
-        {slug === 'registrations' &&
-          (registrations.length === 0 ? (
-            <GlassCard style={styles.emptyCard}>
-              <Ionicons name="checkbox-outline" size={36} color={theme.primary} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                Brak aktywnych tur rejestracji
-              </Text>
-              <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                Twoje aktualne przedmioty i przypisane grupy są już widoczne w zakładkach Plan oraz
-                Przedmioty.
-              </Text>
-            </GlassCard>
-          ) : (
-            registrations.map((round) => (
-              <GlassCard key={round.id} style={{ gap: 12 }}>
-                <View style={styles.rowBetween}>
-                  <View style={[styles.pillBadge, { backgroundColor: theme.successSoft }]}>
-                    <Text style={{ fontSize: 10, fontWeight: '800', color: theme.success }}>
-                      TURA AKTYWNA • {round.mode.toUpperCase()}
-                    </Text>
+                    </Pressable>
                   </View>
                 </View>
+              )}
 
-                <Text style={[styles.itemTitle, { color: theme.text }]}>{round.name}</Text>
-                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                  Okno rejestracji: {round.start_date} – {round.end_date}
+              {payments.length === 0 ? (
+                <View style={styles.emptyBlock}>
+                  <Ionicons name="checkmark-done-circle-outline" size={30} color={theme.success} />
+                  <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                    Saldo 0,00 PLN
+                  </Text>
+                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+                    Brak zaległych opłat ani rat na Twoim koncie USOS.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <SectionHeader title={`Rozliczenia i raty (${payments.length})`} />
+                  {payments.map((p, idx) => {
+                    const isScholarship = p.status === 'incoming_scholarship';
+                    const isPaid = p.status === 'paid';
+                    const targetIban = p.account_iban || bankAccount?.account_number || '';
+
+                    return (
+                      <View
+                        key={p.id}
+                        style={[
+                          styles.itemBlock,
+                          idx < payments.length - 1 && {
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: theme.separator,
+                          },
+                        ]}>
+                        <View style={styles.rowBetween}>
+                          <Text
+                            style={[
+                              styles.monoTag,
+                              {
+                                color: isScholarship || isPaid ? theme.success : theme.warning,
+                              },
+                            ]}>
+                            {isScholarship
+                              ? '● STYPENDIUM'
+                              : isPaid
+                              ? '✓ OPŁACONO'
+                              : '● DO ZAPŁATY'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.amountMono,
+                              {
+                                color: isScholarship
+                                  ? theme.success
+                                  : isPaid
+                                  ? theme.text
+                                  : theme.warning,
+                              },
+                            ]}>
+                            {isScholarship ? '+' : ''}
+                            {p.amount.toFixed(2)} {p.currency}
+                          </Text>
+                        </View>
+
+                        <Text style={[styles.itemTitle, { color: theme.text }]}>{p.title}</Text>
+                        <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                          Termin: {p.due_date}
+                          {p.total_amount && p.total_amount > 0
+                            ? ` · Rata: ${p.total_amount.toFixed(2)} ${p.currency}`
+                            : ''}
+                        </Text>
+
+                        {targetIban ? (
+                          <Pressable
+                            onPress={async () => {
+                              hapticTap();
+                              await Clipboard.setStringAsync(targetIban);
+                              Alert.alert('Skopiowano!', targetIban);
+                            }}
+                            style={styles.inlineCopyRow}>
+                            <Ionicons name="copy-outline" size={12} color={theme.accent} />
+                            <Text
+                              style={[styles.monoSub, { color: theme.accent, flex: 1 }]}
+                              numberOfLines={1}>
+                              {targetIban}
+                            </Text>
+                          </Pressable>
+                        ) : null}
+
+                        {!isPaid && !isScholarship && (
+                          <View style={styles.actionRow}>
+                            <GlassSurface
+                              radius={10}
+                              interactive
+                              onPress={async () => {
+                                const transferText = `Odbiorca: ${
+                                  bankAccount?.account_owner || selectedInstallation.namePl
+                                }\nRachunek IBAN: ${targetIban}\nKwota: ${p.amount.toFixed(2)} ${
+                                  p.currency
+                                }\nTytuł przelewu: ${p.title} (Album #${user.student_number})`;
+                                await Clipboard.setStringAsync(targetIban || transferText);
+                                await Share.share({
+                                  title: `Przelew USOS: ${p.title}`,
+                                  message: transferText,
+                                }).catch(() => {});
+                              }}
+                              style={{ flex: 1 }}
+                              contentStyle={styles.glassBtnInner}>
+                              <Ionicons name="share-outline" size={14} color={theme.text} />
+                              <Text style={[styles.inlineActionText, { color: theme.text }]}>
+                                Dane do banku
+                              </Text>
+                            </GlassSurface>
+
+                            <Pressable
+                              onPress={async () => {
+                                hapticTap();
+                                const usosWebBase = selectedInstallation.baseUrl.replace(
+                                  'usosapps.',
+                                  'usosweb.'
+                                );
+                                await WebBrowser.openBrowserAsync(
+                                  `${usosWebBase}kontroler.php?_action=home/platnosci/index`
+                                );
+                              }}
+                              style={({ pressed }) => [
+                                styles.primaryCompactBtn,
+                                {
+                                  flex: 1.15,
+                                  backgroundColor: theme.accent,
+                                  opacity: pressed ? 0.8 : 1,
+                                },
+                              ]}>
+                              <Ionicons
+                                name="flash-outline"
+                                size={14}
+                                color={theme.primaryContrast}
+                              />
+                              <Text
+                                style={[
+                                  styles.inlineActionText,
+                                  { color: theme.primaryContrast },
+                                ]}>
+                                Opłać teraz
+                              </Text>
+                            </Pressable>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+            </>
+          )}
+
+          {/* 4. REGISTRATIONS — Flat Hairline Sections */}
+          {slug === 'registrations' &&
+            (registrations.length === 0 ? (
+              <View style={styles.emptyBlock}>
+                <Ionicons name="checkbox-outline" size={30} color={theme.textMuted} />
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                  Brak aktywnych tur rejestracji
                 </Text>
-
-                <View style={{ gap: 10, marginTop: 4 }}>
-                  {round.courses.map((c) => (
+                <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+                  Twoje aktualne przedmioty i przypisane grupy są widoczne w zakładkach Plan i
+                  Dziennik.
+                </Text>
+              </View>
+            ) : (
+              registrations.map((round) => (
+                <View key={round.id} style={styles.sectionSpacer}>
+                  <SectionHeader
+                    title={`${round.name} · ${round.mode}`}
+                    rightText={`${round.start_date} – ${round.end_date}`}
+                    accentColor={theme.success}
+                  />
+                  {round.courses.map((c, idx) => (
                     <View
                       key={c.course_id}
                       style={[
-                        styles.regCourseBox,
-                        {
-                          backgroundColor: theme.bgSecondary,
-                          borderColor: c.is_registered ? theme.primary : theme.cardBorder,
+                        styles.rowBetweenItem,
+                        idx < round.courses.length - 1 && {
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: theme.separator,
                         },
                       ]}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text }}>
+                      <Text style={[styles.rowTitle, { color: theme.text, flex: 1 }]}>
                         {c.course_name}
                       </Text>
                       <Pressable
@@ -661,285 +600,235 @@ export default function ModuleScreenModal() {
                           toggleCourseRegistration(round.id, c.course_id);
                         }}
                         style={[
-                          styles.regToggleBtn,
+                          styles.miniPillBtn,
                           {
-                            backgroundColor: c.is_registered
-                              ? theme.dangerSoft
-                              : theme.primarySoft,
+                            backgroundColor: c.is_registered ? theme.dangerSoft : theme.accentSoft,
                           },
                         ]}>
                         <Text
-                          style={{
-                            fontSize: 12,
-                            fontWeight: '800',
-                            color: c.is_registered ? theme.danger : theme.primary,
-                          }}>
-                          {c.is_registered
-                            ? 'Wypisz z przedmiotu'
-                            : `Zarejestruj (${c.group_options[0]})`}
+                          style={[
+                            styles.monoTag,
+                            { color: c.is_registered ? theme.danger : theme.accent },
+                          ]}>
+                          {c.is_registered ? 'WYPISZ' : 'ZAPISZ'}
                         </Text>
                       </Pressable>
                     </View>
                   ))}
                 </View>
-              </GlassCard>
-            ))
-          ))}
+              ))
+            ))}
 
-        {/* 5. SURVEYS */}
-        {slug === 'surveys' &&
-          (surveys.length === 0 ? (
-            <GlassCard style={styles.emptyCard}>
-              <Ionicons name="chatbox-ellipses-outline" size={36} color={theme.primary} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                Brak ankiet oczekujących na wypełnienie
-              </Text>
-              <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                Wszystkie dostępne ankiety oceny zajęć w tym semestrze zostały już rozliczone lub
-                nie rozpoczęła się jeszcze tura ankietowania.
-              </Text>
-            </GlassCard>
-          ) : (
-            surveys.map((srv) => {
-              const isEditing = activeSurveyId === srv.id;
-              return (
-                <GlassCard key={srv.id} style={{ gap: 10 }}>
-                  <View style={styles.rowBetween}>
-                    <View
-                      style={[
-                        styles.pillBadge,
-                        {
-                          backgroundColor: srv.filled_out
-                            ? theme.successSoft
-                            : theme.warningSoft,
-                        },
-                      ]}>
-                      <Text
-                        style={{
-                          fontSize: 10,
-                          fontWeight: '800',
-                          color: srv.filled_out ? theme.success : theme.warning,
-                        }}>
-                        {srv.filled_out ? 'WYPEŁNIONA' : 'DO WYPEŁNIENIA'}
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 11, color: theme.textMuted }}>
-                      Do {srv.deadline}
-                    </Text>
-                  </View>
-
-                  <Text style={[styles.itemTitle, { color: theme.text }]}>{srv.course_name}</Text>
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Avatar name={srv.lecturer_name} uri={srv.lecturer_photo} size={34} />
-                    <Text style={{ fontSize: 13, color: theme.text, fontWeight: '700' }}>
-                      {srv.lecturer_name}
-                    </Text>
-                  </View>
-
-                  {!srv.filled_out && !isEditing && (
-                    <Pressable
-                      onPress={() => setActiveSurveyId(srv.id)}
-                      style={[styles.actionBtn, { backgroundColor: theme.primarySoft }]}>
-                      <Ionicons name="create-outline" size={17} color={theme.primary} />
-                      <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 13 }}>
-                        Oceń zajęcia
-                      </Text>
-                    </Pressable>
-                  )}
-
-                  {isEditing && (
-                    <View style={{ gap: 10, marginTop: 4 }}>
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Pressable
-                            key={star}
-                            onPress={() => setSurveyRating(star)}
-                            style={[
-                              styles.starBtn,
-                              {
-                                backgroundColor:
-                                  surveyRating >= star ? theme.warningSoft : theme.bgSecondary,
-                                borderColor:
-                                  surveyRating >= star ? theme.warning : theme.cardBorder,
-                              },
-                            ]}>
-                            <Text style={{ fontSize: 15, fontWeight: '800', color: theme.warning }}>
-                              {star} ★
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                      <TextInput
-                        value={surveyComment}
-                        onChangeText={setSurveyComment}
-                        placeholder="Anonimowy komentarz..."
-                        placeholderTextColor={theme.textMuted}
-                        style={[
-                          styles.input,
-                          {
-                            backgroundColor: theme.bgSecondary,
-                            color: theme.text,
-                            borderColor: theme.cardBorder,
-                          },
-                        ]}
-                      />
-                      <Pressable
-                        onPress={() => {
-                          hapticTap();
-                          submitSurvey(srv.id, surveyRating, surveyComment);
-                          setActiveSurveyId(null);
-                          setSurveyComment('');
-                        }}
-                        style={[styles.actionBtn, { backgroundColor: theme.primary }]}>
-                        <Text
-                          style={{
-                            color: theme.primaryContrast,
-                            fontWeight: '800',
-                            fontSize: 13,
-                          }}>
-                          Zapisz ocenę
-                        </Text>
-                      </Pressable>
-                    </View>
-                  )}
-                </GlassCard>
-              );
-            })
-          ))}
-
-        {/* 6. STAFF DIRECTORY (With Photos, Titles & Courses Taught!) */}
-        {slug === 'staff' && (
-          <>
-            <View
-              style={[
-                styles.searchBar,
-                {
-                  backgroundColor: theme.cardElevated,
-                  borderColor: staffQuery.length > 0 ? theme.primary : theme.cardBorder,
-                  borderWidth: 1.5,
-                },
-              ]}>
-              <Ionicons name="search" size={18} color={theme.primary} />
-              <TextInput
-                value={staffQuery}
-                onChangeText={setStaffQuery}
-                placeholder={`Szukaj wykładowcy w ${selectedInstallation.shortName} (np. nazwisko)...`}
-                placeholderTextColor={theme.textMuted}
-                style={{ flex: 1, color: theme.text, fontSize: 14, fontWeight: '500' }}
-              />
-              {isSearchingStaff && (
-                <ActivityIndicator size="small" color={theme.primary} />
-              )}
-              {staffQuery.length > 0 && (
-                <Pressable onPress={() => setStaffQuery('')}>
-                  <Ionicons name="close-circle" size={18} color={theme.textMuted} />
-                </Pressable>
-              )}
-            </View>
-
-            {staffResults.length === 0 ? (
-              <GlassCard style={styles.emptyCard}>
-                <Ionicons name="people-outline" size={36} color={theme.primary} />
+          {/* 5. SURVEYS — Flat Hairline Rows */}
+          {slug === 'surveys' &&
+            (surveys.length === 0 ? (
+              <View style={styles.emptyBlock}>
+                <Ionicons name="chatbox-ellipses-outline" size={30} color={theme.textMuted} />
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                  {isSearchingStaff ? 'Trwa wyszukiwanie w katalogu...' : 'Wyszukaj pracownika uczelni'}
+                  Brak ankiet do wypełnienia
                 </Text>
                 <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                  Wpisz co najmniej 2 znaki nazwiska powyżej, aby przeszukać katalog pracowników{' '}
-                  {selectedInstallation.shortName}.
+                  Wszystkie dostępne ankiety oceny zajęć zostały już rozliczone.
                 </Text>
-              </GlassCard>
+              </View>
             ) : (
-              staffResults.map((member) => (
-                <GlassCard key={member.id} style={{ gap: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-                    <Avatar
-                      name={member.name}
-                      uri={member.photo_url}
-                      size={56}
-                      borderColor={theme.primary}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: theme.primary }}>
-                          {member.titles.toUpperCase()}
-                        </Text>
-                        {member.is_my_lecturer && (
-                          <View
-                            style={{
-                              backgroundColor: theme.successSoft,
-                              paddingHorizontal: 7,
-                              paddingVertical: 2,
-                              borderRadius: 6,
-                            }}>
-                            <Text style={{ fontSize: 9, fontWeight: '800', color: theme.success }}>
-                              TWÓJ WYKŁADOWCA
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[styles.itemTitle, { color: theme.text, marginTop: 1 }]}>
-                        {member.name}
-                      </Text>
+              surveys.map((srv, idx) => {
+                const isEditing = activeSurveyId === srv.id;
+                return (
+                  <View
+                    key={srv.id}
+                    style={[
+                      styles.itemBlock,
+                      idx < surveys.length - 1 && {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: theme.separator,
+                      },
+                    ]}>
+                    <View style={styles.rowBetween}>
                       <Text
-                        style={{ fontSize: 12, color: theme.textSecondary }}
-                        numberOfLines={1}>
-                        {member.faculty}
+                        style={[
+                          styles.monoTag,
+                          { color: srv.filled_out ? theme.success : theme.warning },
+                        ]}>
+                        {srv.filled_out ? '✓ WYPEŁNIONA' : '● DO WYPEŁNIENIA'}
+                      </Text>
+                      <Text style={[styles.monoSub, { color: theme.textMuted }]}>
+                        Do {srv.deadline}
                       </Text>
                     </View>
-                  </View>
 
-                  {member.courses_taught && member.courses_taught.length > 0 && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      {member.courses_taught.map((crs, idx) => (
-                        <View
-                          key={idx}
-                          style={{
-                            backgroundColor: theme.primarySoft,
-                            paddingHorizontal: 9,
-                            paddingVertical: 4,
-                            borderRadius: 8,
-                          }}>
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.primary }}>
-                            📚 {crs}
-                          </Text>
-                        </View>
-                      ))}
+                    <Text style={[styles.itemTitle, { color: theme.text }]}>{srv.course_name}</Text>
+
+                    <View style={styles.inlineAvatarRow}>
+                      <Avatar name={srv.lecturer_name} uri={srv.lecturer_photo} size={26} />
+                      <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                        {srv.lecturer_name}
+                      </Text>
                     </View>
-                  )}
 
-                  <View style={[styles.staffMetaBox, { backgroundColor: theme.bgSecondary }]}>
-                    <Text style={{ fontSize: 12, color: theme.text }}>
-                      🚪 <Text style={{ fontWeight: '700' }}>{member.room}</Text> •{' '}
-                      {member.building}
+                    {!srv.filled_out && !isEditing && (
+                      <Pressable
+                        onPress={() => setActiveSurveyId(srv.id)}
+                        style={[styles.inlineActionBtn, { backgroundColor: theme.accentSoft }]}>
+                        <Ionicons name="create-outline" size={15} color={theme.accent} />
+                        <Text style={[styles.inlineActionText, { color: theme.accent }]}>
+                          Oceń zajęcia
+                        </Text>
+                      </Pressable>
+                    )}
+
+                    {isEditing && (
+                      <View style={{ gap: 10, marginTop: 4 }}>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Pressable
+                              key={star}
+                              onPress={() => setSurveyRating(star)}
+                              style={[
+                                styles.starBtn,
+                                {
+                                  backgroundColor:
+                                    surveyRating >= star ? theme.warningSoft : theme.bgSecondary,
+                                  borderColor:
+                                    surveyRating >= star ? theme.warning : theme.separator,
+                                },
+                              ]}>
+                              <Text style={{ fontSize: 13, fontWeight: '800', color: theme.warning }}>
+                                {star}★
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                        <TextInput
+                          value={surveyComment}
+                          onChangeText={setSurveyComment}
+                          placeholder="Anonimowy komentarz..."
+                          placeholderTextColor={theme.textMuted}
+                          style={[
+                            styles.input,
+                            {
+                              backgroundColor: theme.card,
+                              color: theme.text,
+                              borderColor: theme.separator,
+                            },
+                          ]}
+                        />
+                        <Pressable
+                          onPress={() => {
+                            hapticTap();
+                            submitSurvey(srv.id, surveyRating, surveyComment);
+                            setActiveSurveyId(null);
+                            setSurveyComment('');
+                          }}
+                          style={[styles.inlineActionBtn, { backgroundColor: theme.accent }]}>
+                          <Text style={[styles.inlineActionText, { color: theme.primaryContrast }]}>
+                            Zapisz ocenę
+                          </Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            ))}
+
+          {/* 6. STAFF DIRECTORY — Frosted Search + Flat Hairline Rows */}
+          {slug === 'staff' && (
+            <>
+              <GlassSurface radius={12} contentStyle={styles.searchBarInner}>
+                <Ionicons name="search" size={16} color={theme.accent} />
+                <TextInput
+                  value={staffQuery}
+                  onChangeText={setStaffQuery}
+                  placeholder={`Szukaj wykładowcy w ${selectedInstallation.shortName}...`}
+                  placeholderTextColor={theme.textMuted}
+                  style={{ flex: 1, color: theme.text, fontSize: 14 }}
+                />
+                {isSearchingStaff && <ActivityIndicator size="small" color={theme.accent} />}
+                {staffQuery.length > 0 && (
+                  <Pressable onPress={() => setStaffQuery('')} hitSlop={8}>
+                    <Ionicons name="close-circle" size={16} color={theme.textMuted} />
+                  </Pressable>
+                )}
+              </GlassSurface>
+
+              {staffResults.length === 0 ? (
+                <View style={styles.emptyBlock}>
+                  <Ionicons name="people-outline" size={30} color={theme.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                    {isSearchingStaff ? 'Wyszukiwanie w katalogu...' : 'Wyszukaj pracownika'}
+                  </Text>
+                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+                    Wpisz co najmniej 2 znaki nazwiska, aby przeszukać katalog{' '}
+                    {selectedInstallation.shortName}.
+                  </Text>
+                </View>
+              ) : (
+                staffResults.map((member, idx) => (
+                  <View
+                    key={member.id}
+                    style={[
+                      styles.itemBlock,
+                      idx < staffResults.length - 1 && {
+                        borderBottomWidth: StyleSheet.hairlineWidth,
+                        borderBottomColor: theme.separator,
+                      },
+                    ]}>
+                    <View style={styles.staffTopRow}>
+                      <Avatar
+                        name={member.name}
+                        uri={member.photo_url}
+                        size={46}
+                        borderColor={theme.cardBorder}
+                      />
+                      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                        <View style={styles.staffBadgeLine}>
+                          <Text
+                            style={[styles.monoTag, { color: theme.accent }]}
+                            numberOfLines={1}>
+                            {member.titles.toUpperCase()}
+                          </Text>
+                          {member.is_my_lecturer && (
+                            <Text style={[styles.monoTag, { color: theme.success }]}>
+                              · TWÓJ PROWADZĄCY
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={1}>
+                          {member.name}
+                        </Text>
+                        <Text
+                          style={[styles.bodyMuted, { color: theme.textSecondary }]}
+                          numberOfLines={1}>
+                          {member.faculty}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                      Pokój {member.room} · {member.building}
+                      {member.office_hours ? ` · Konsultacje: ${member.office_hours}` : ''}
                     </Text>
-                    <Text style={{ fontSize: 12, color: theme.text }}>
-                      🕒 Konsultacje:{' '}
-                      <Text style={{ fontWeight: '600' }}>{member.office_hours}</Text>
-                    </Text>
+
+                    {member.courses_taught && member.courses_taught.length > 0 && (
+                      <Text
+                        style={[styles.monoSub, { color: theme.textMuted }]}
+                        numberOfLines={2}>
+                        {member.courses_taught.join(' · ')}
+                      </Text>
+                    )}
+
                     {member.email && member.email.includes('@') ? (
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 8,
-                          marginTop: 2,
-                        }}>
+                      <View style={styles.rowBetween}>
                         <Pressable
                           onPress={() => {
                             hapticTap();
                             Linking.openURL(`mailto:${member.email}`).catch(() => {});
                           }}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                          <Ionicons name="mail-outline" size={14} color={theme.primary} />
+                          style={styles.inlineCopyRow}>
+                          <Ionicons name="mail-outline" size={13} color={theme.accent} />
                           <Text
-                            style={{
-                              fontSize: 12,
-                              color: theme.primary,
-                              fontWeight: '700',
-                              textDecorationLine: 'underline',
-                            }}
+                            style={[styles.monoSub, { color: theme.accent }]}
                             numberOfLines={1}>
                             {member.email}
                           </Text>
@@ -948,21 +837,11 @@ export default function ModuleScreenModal() {
                           onPress={async () => {
                             hapticTap();
                             await Clipboard.setStringAsync(member.email);
-                            Alert.alert('Skopiowano', `Adres ${member.email} został skopiowany.`);
+                            Alert.alert('Skopiowano', member.email);
                           }}
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 4,
-                            borderRadius: 7,
-                            backgroundColor: theme.primarySoft,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}>
-                          <Ionicons name="copy-outline" size={12} color={theme.primary} />
-                          <Text style={{ fontSize: 10, fontWeight: '800', color: theme.primary }}>
-                            KOPIUJ
-                          </Text>
+                          style={[styles.miniPillBtn, { backgroundColor: theme.accentSoft }]}>
+                          <Ionicons name="copy-outline" size={11} color={theme.accent} />
+                          <Text style={[styles.monoTag, { color: theme.accent }]}>KOPIUJ</Text>
                         </Pressable>
                       </View>
                     ) : (
@@ -972,129 +851,130 @@ export default function ModuleScreenModal() {
                           const webBase = selectedInstallation.baseUrl
                             .replace(/apps\.?/i, '')
                             .replace(/\/+$/, '');
-                          const profileLink = `${webBase}/kontroler.php?_action=katalog2/osoby/pokazOsobe&os_id=${member.id}`;
-                          WebBrowser.openBrowserAsync(profileLink).catch(() => {});
+                          WebBrowser.openBrowserAsync(
+                            `${webBase}/kontroler.php?_action=katalog2/osoby/pokazOsobe&os_id=${member.id}`
+                          ).catch(() => {});
                         }}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginTop: 2,
-                        }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="mail-outline" size={14} color={theme.textSecondary} />
-                          <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '600' }}>
-                            Kontakt przez USOSweb
-                          </Text>
-                        </View>
-                        <Text style={{ fontSize: 11, color: theme.primary, fontWeight: '700' }}>
-                          Otwórz profil →
+                        style={styles.inlineCopyRow}>
+                        <Ionicons name="open-outline" size={13} color={theme.accent} />
+                        <Text style={[styles.monoSub, { color: theme.accent }]}>
+                          Otwórz profil w USOSweb →
                         </Text>
                       </Pressable>
                     )}
                   </View>
-                </GlassCard>
-              ))
-            )}
-          </>
-        )}
+                ))
+              )}
+            </>
+          )}
 
-        {/* 7. BUILDINGS / CAMPUS MAP */}
-        {slug === 'buildings' &&
-          (buildings.length === 0 ? (
-            <GlassCard style={styles.emptyCard}>
-              <Ionicons name="map-outline" size={36} color={theme.primary} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                Brak pobranych budynków kampusu
-              </Text>
-            </GlassCard>
-          ) : (
-            buildings.map((b) => (
-              <GlassCard key={b.id} style={{ gap: 10 }}>
-                <View style={styles.rowBetween}>
-                  <View style={[styles.pillBadge, { backgroundColor: theme.primarySoft }]}>
-                    <Text style={{ fontSize: 12, fontWeight: '900', color: theme.primary }}>
+          {/* 7. BUILDINGS — Flat Hairline Rows */}
+          {slug === 'buildings' &&
+            (buildings.length === 0 ? (
+              <View style={styles.emptyBlock}>
+                <Ionicons name="map-outline" size={30} color={theme.textMuted} />
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                  Brak pobranych budynków kampusu
+                </Text>
+              </View>
+            ) : (
+              buildings.map((b, idx) => (
+                <View
+                  key={b.id}
+                  style={[
+                    styles.itemBlock,
+                    idx < buildings.length - 1 && {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: theme.separator,
+                    },
+                  ]}>
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.monoTag, { color: theme.accent }]}>
                       BUDYNEK {b.code}
                     </Text>
-                  </View>
-                  <Text style={{ fontSize: 11, color: theme.textMuted }}>
-                    GPS: {b.latitude.toFixed(4)}°N, {b.longitude.toFixed(4)}°E
-                  </Text>
-                </View>
-                <Text style={[styles.itemTitle, { color: theme.text }]}>{b.name}</Text>
-                <Text style={{ fontSize: 13, color: theme.textSecondary }}>📍 {b.address}</Text>
-              </GlassCard>
-            ))
-          ))}
-
-        {/* 8. THESIS, DORM & CLEARANCE SLIPS */}
-        {slug === 'thesis' && (
-          <>
-            {thesis ? (
-              <GlassCard elevated style={{ gap: 10 }}>
-                <View style={styles.rowBetween}>
-                  <Text style={[styles.itemTitle, { color: theme.text, flex: 1 }]}>
-                    Praca {thesis.type}: {thesis.title_pl}
-                  </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: theme.success }}>
-                    {thesis.status}
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Avatar name={thesis.supervisor} uri={thesis.supervisor_photo} size={38} />
-                  <View>
-                    <Text style={{ fontSize: 11, color: theme.textMuted, fontWeight: '700' }}>
-                      PROMOTOR PRACY
-                    </Text>
-                    <Text style={{ fontSize: 14, color: theme.text, fontWeight: '800' }}>
-                      {thesis.supervisor}
+                    <Text style={[styles.monoSub, { color: theme.textMuted }]}>
+                      {b.latitude.toFixed(4)}°N, {b.longitude.toFixed(4)}°E
                     </Text>
                   </View>
+                  <Text style={[styles.itemTitle, { color: theme.text }]}>{b.name}</Text>
+                  <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                    {b.address}
+                  </Text>
                 </View>
-              </GlassCard>
-            ) : (
-              <GlassCard style={styles.emptyCard}>
-                <Ionicons name="ribbon-outline" size={36} color={theme.primary} />
-                <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                  Brak zarejestrowanej pracy dyplomowej w APD
-                </Text>
-                <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                  W systemie USOS / APD nie przypisano jeszcze tematu pracy dyplomowej do Twojego
-                  konta.
-                </Text>
-              </GlassCard>
-            )}
-
-            {dorm && (
-              <GlassCard style={{ gap: 8 }}>
-                <Text style={[styles.itemTitle, { color: theme.text }]}>{dorm.dorm_name}</Text>
-                <Text style={{ fontSize: 13, color: theme.textSecondary }}>
-                  Pokój: <Text style={{ color: theme.text, fontWeight: '700' }}>{dorm.room_number}</Text> •{' '}
-                  {dorm.room_type}
-                </Text>
-              </GlassCard>
-            )}
-
-            {slips.map((sl) => (
-              <GlassCard key={sl.id} style={{ gap: 8 }}>
-                <Text style={[styles.itemTitle, { color: theme.text }]}>{sl.title}</Text>
-                {sl.items.map((it, i) => (
-                  <View key={i} style={styles.rowBetween}>
-                    <Text style={{ fontSize: 13, color: theme.textSecondary }}>
-                      {it.department}
-                    </Text>
-                    <Text style={{ fontSize: 12, fontWeight: '800', color: theme.success }}>
-                      ✓ {it.status}
-                    </Text>
-                  </View>
-                ))}
-              </GlassCard>
+              ))
             ))}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+
+          {/* 8. THESIS, DORM & SLIPS — Flat Hairline Sections */}
+          {slug === 'thesis' && (
+            <>
+              {thesis ? (
+                <View style={[styles.itemBlock, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.separator }]}>
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.monoTag, { color: theme.accent }]}>
+                      PRACA {thesis.type.toUpperCase()}
+                    </Text>
+                    <Text style={[styles.monoTag, { color: theme.success }]}>
+                      {thesis.status.toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={[styles.itemTitle, { color: theme.text }]}>{thesis.title_pl}</Text>
+                  <View style={styles.inlineAvatarRow}>
+                    <Avatar name={thesis.supervisor} uri={thesis.supervisor_photo} size={28} />
+                    <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                      Promotor: {thesis.supervisor}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.emptyBlock}>
+                  <Ionicons name="ribbon-outline" size={30} color={theme.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                    Brak pracy dyplomowej w APD
+                  </Text>
+                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+                    W systemie USOS / APD nie przypisano jeszcze tematu pracy do Twojego konta.
+                  </Text>
+                </View>
+              )}
+
+              {dorm && (
+                <View style={[styles.itemBlock, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.separator }]}>
+                  <Text style={[styles.monoTag, { color: theme.accent }]}>AKADEMIK</Text>
+                  <Text style={[styles.itemTitle, { color: theme.text }]}>{dorm.dorm_name}</Text>
+                  <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                    Pokój {dorm.room_number} · {dorm.room_type}
+                  </Text>
+                </View>
+              )}
+
+              {slips.map((sl) => (
+                <View key={sl.id} style={styles.sectionSpacer}>
+                  <SectionHeader title={sl.title} />
+                  {sl.items.map((it, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.rowBetweenItem,
+                        i < sl.items.length - 1 && {
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: theme.separator,
+                        },
+                      ]}>
+                      <Text style={[styles.bodyMuted, { color: theme.textSecondary }]}>
+                        {it.department}
+                      </Text>
+                      <Text style={[styles.monoTag, { color: theme.success }]}>
+                        ✓ {it.status}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -1106,37 +986,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
-  apiLabel: {
+  categoryMono: {
+    fontFamily: MONO_FONT,
     fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    fontWeight: '700',
+    letterSpacing: 0.7,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
+    letterSpacing: -0.4,
     marginTop: 2,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   content: {
-    padding: 18,
-    gap: 14,
-    paddingBottom: 45,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 44,
   },
-  elsCard: {
-    borderRadius: 24,
-    padding: 20,
-    gap: 18,
+  elsOuter: {
+    marginBottom: 12,
+  },
+  elsInner: {
+    padding: 18,
+    gap: 16,
   },
   elsTopRow: {
     flexDirection: 'row',
@@ -1144,79 +1028,55 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
   },
-  elsCountry: {
-    color: '#93C5FD',
-    fontSize: 10,
+  elsOverline: {
+    fontFamily: MONO_FONT,
+    fontSize: 9.5,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 0.7,
   },
   elsUniName: {
-    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     marginTop: 2,
   },
-  elsHoloBadge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(16, 185, 129, 0.22)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
   },
-  elsHoloText: {
-    color: '#34D399',
-    fontSize: 10,
+  statusBadgeText: {
+    fontFamily: MONO_FONT,
+    fontSize: 9.5,
     fontWeight: '800',
   },
   elsBodyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
   elsStudentName: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  elsMeta: {
-    color: '#DBEAFE',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   elsFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.14)',
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 12,
   },
-  elsChipText: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  qrCard: {
+  qrOpenSection: {
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 22,
+    paddingVertical: 26,
+    gap: 8,
   },
-  qrBox: {
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-  },
-  qrTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  qrSub: {
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
+  itemBlock: {
+    paddingVertical: 14,
+    gap: 6,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -1224,123 +1084,161 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  pillBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-  metaStack: {
-    gap: 4,
-  },
-  actionBtn: {
+  rowBetweenItem: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 13,
-    marginTop: 2,
+    paddingVertical: 11,
+    gap: 10,
   },
-  smallTag: {
+  monoTag: {
+    fontFamily: MONO_FONT,
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
-  ibanText: {
+  monoSub: {
+    fontFamily: MONO_FONT,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  amountMono: {
+    fontFamily: MONO_FONT,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  itemTitle: {
+    fontSize: 15.5,
+    fontWeight: '700',
+    letterSpacing: -0.25,
+    lineHeight: 20,
+  },
+  rowTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  bodyMuted: {
+    fontSize: 12.5,
+    lineHeight: 17,
+  },
+  ibanSection: {
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  ibanBig: {
     fontFamily: MONO_FONT,
     fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.4,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    marginTop: 2,
   },
-  paymentActionsRow: {
+  actionRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 4,
+    marginTop: 6,
   },
-  ibanInlineStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  miniCopyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 9,
-  },
-  copyIbanBtn: {
+  glassBtnInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    borderRadius: 13,
+    height: 38,
+    paddingHorizontal: 10,
   },
-  regCourseBox: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
-  },
-  regToggleBtn: {
+  primaryCompactBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 9,
+    justifyContent: 'center',
+    gap: 6,
+    height: 38,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+  },
+  inlineActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 38,
     borderRadius: 10,
     marginTop: 4,
+  },
+  inlineActionText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  inlineCopyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  miniPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  inlineAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  staffTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  staffBadgeLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  searchBarInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingHorizontal: 12,
+    height: 42,
+    marginBottom: 6,
   },
   starBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingVertical: 8,
+    borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13,
+    fontSize: 13.5,
   },
-  searchBar: {
-    flexDirection: 'row',
+  sectionSpacer: {
+    marginTop: 4,
+  },
+  emptyBlock: {
     alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 46,
-  },
-  staffMetaBox: {
-    padding: 11,
-    borderRadius: 12,
-    gap: 5,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 48,
     gap: 8,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15.5,
+    fontWeight: '700',
     textAlign: 'center',
   },
   emptySub: {
     fontSize: 13,
     textAlign: 'center',
-    lineHeight: 19,
+    maxWidth: 280,
+    lineHeight: 18,
   },
 });

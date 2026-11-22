@@ -1,11 +1,13 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { SecurityGateOverlay } from '@/components/SecurityGateOverlay';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { registerBackgroundSyncAsync } from '@/services/backgroundSync';
 import { useUsosStore } from '@/store/useUsosStore';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -21,6 +23,7 @@ export default function RootLayout() {
   const securityConfigured = useUsosStore((s) => s.securityConfigured);
 
   const [bootFinished, setBootFinished] = useState(false);
+  const appStateRef = useRef<string>(AppState.currentState || 'active');
 
   useEffect(() => {
     hydrate().finally(() => {
@@ -28,6 +31,36 @@ export default function RootLayout() {
       setTimeout(() => setBootFinished(true), 650);
     });
   }, [hydrate]);
+
+  // Register native OS background refresh + auto-refresh when returning from background or every 15 min
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    registerBackgroundSyncAsync().catch(() => {});
+
+    const STALE_AFTER_MS = 5 * 60 * 1000; // 5 minutes
+    const maybeSyncIfStale = () => {
+      const s = useUsosStore.getState();
+      if (!s.isAuthenticated || s.isSyncing) return;
+      if (Date.now() - s.lastSyncedTimestamp >= STALE_AFTER_MS) {
+        s.syncFromLiveApi().catch(() => {});
+      }
+    };
+
+    const sub = AppState.addEventListener('change', (nextState) => {
+      const prev = appStateRef.current;
+      appStateRef.current = nextState;
+      if ((prev === 'background' || prev === 'inactive') && nextState === 'active') {
+        maybeSyncIfStale();
+      }
+    });
+
+    const intervalId = setInterval(maybeSyncIfStale, 15 * 60 * 1000);
+    return () => {
+      sub.remove();
+      clearInterval(intervalId);
+    };
+  }, [isAuthenticated]);
 
   const showInitialLoader =
     !isHydrated || !bootFinished || (isAuthenticated && isSyncing && !lastSyncedAt);

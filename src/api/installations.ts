@@ -11,8 +11,6 @@ export interface UsosInstallation {
   accentColor: string;
   iconSource?: ImageSourcePropType;
   logoUrl?: string;
-  defaultConsumerKey?: string;
-  defaultConsumerSecret?: string;
   isFeatured?: boolean;
 }
 
@@ -32,8 +30,17 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     accentColor: '#1D4ED8',
     iconSource: require('@/assets/universities/uken.png'),
     logoUrl: 'https://www.google.com/s2/favicons?domain=uken.krakow.pl&sz=128',
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_UKEN || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_UKEN || '',
+    isFeatured: true,
+  },
+  {
+    id: 'agh',
+    shortName: 'AGH',
+    namePl: 'Akademia Górniczo-Hutnicza im. Stanisława Staszica w Krakowie',
+    nameEn: 'AGH University of Krakow',
+    city: 'Kraków',
+    baseUrl: 'https://apps.usos.agh.edu.pl/',
+    accentColor: '#15803D',
+    logoUrl: 'https://www.google.com/s2/favicons?domain=agh.edu.pl&sz=128',
     isFeatured: true,
   },
   {
@@ -46,8 +53,6 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     accentColor: '#1E40AF',
     iconSource: require('@/assets/universities/uj.png'),
     logoUrl: 'https://www.google.com/s2/favicons?domain=uj.edu.pl&sz=128',
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_UJ || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_UJ || '',
     isFeatured: true,
   },
   {
@@ -60,8 +65,6 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     accentColor: '#7C3AED',
     iconSource: require('@/assets/universities/uek.png'),
     logoUrl: 'https://www.google.com/s2/favicons?domain=uek.krakow.pl&sz=128',
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_UEK || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_UEK || '',
     isFeatured: true,
   },
   {
@@ -85,8 +88,6 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     baseUrl: 'https://usosapi.upjp2.edu.pl/',
     accentColor: '#D97706',
     iconSource: require('@/assets/universities/upjp2.png'),
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_UPJP2 || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_UPJP2 || '',
   },
   {
     id: 'awf_krk',
@@ -97,8 +98,6 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     baseUrl: 'https://usosapi.awf.krakow.pl/',
     accentColor: '#0284C7',
     iconSource: require('@/assets/universities/awf_krk.png'),
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_AWF_KRK || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_AWF_KRK || '',
   },
   {
     id: 'uw',
@@ -121,8 +120,6 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     baseUrl: 'https://apps.usos.pw.edu.pl/',
     accentColor: '#EA580C',
     iconSource: require('@/assets/universities/pw.png'),
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_PW || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_PW || '',
     isFeatured: true,
   },
   {
@@ -135,8 +132,6 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     accentColor: '#0284C7',
     iconSource: require('@/assets/universities/uam.png'),
     logoUrl: 'https://www.google.com/s2/favicons?domain=amu.edu.pl&sz=128',
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_UAM || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_UAM || '',
     isFeatured: true,
   },
   {
@@ -183,8 +178,6 @@ export const DEFAULT_USOS_INSTALLATIONS: UsosInstallation[] = [
     accentColor: '#4F46E5',
     iconSource: require('@/assets/universities/umk.png'),
     logoUrl: 'https://www.google.com/s2/favicons?domain=umk.pl&sz=128',
-    defaultConsumerKey: process.env.EXPO_PUBLIC_USOS_KEY_UMK || '',
-    defaultConsumerSecret: process.env.EXPO_PUBLIC_USOS_SECRET_UMK || '',
   },
   {
     id: 'us',

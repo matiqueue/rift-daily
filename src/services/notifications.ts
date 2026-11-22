@@ -1,4 +1,8 @@
 import * as Notifications from 'expo-notifications';
+import {
+  AndroidImportance,
+  IosAuthorizationStatus,
+} from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import {
@@ -72,7 +76,7 @@ export function configureNotificationsHandler() {
       Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
         name: 'Rift Daily — Alerty USOS',
         description: 'Zmiany godzin lekcji, nowe oceny, zadania i terminy rat',
-        importance: Notifications.AndroidImportance.MAX,
+        importance: AndroidImportance.MAX,
         vibrationPattern: [0, 220, 140, 220],
         lightColor: '#818CF8',
         sound: 'default',
@@ -93,7 +97,7 @@ export async function requestNotificationPermissions(): Promise<{
   try {
     configureNotificationsHandler();
     const existing = await Notifications.getPermissionsAsync();
-    if (existing.granted || existing.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
+    if (existing.granted || existing.ios?.status === IosAuthorizationStatus.PROVISIONAL) {
       return { granted: true, status: 'granted' };
     }
     const requested = await Notifications.requestPermissionsAsync({
@@ -105,7 +109,7 @@ export async function requestNotificationPermissions(): Promise<{
     });
     const isGranted =
       requested.granted ||
-      requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+      requested.ios?.status === IosAuthorizationStatus.PROVISIONAL;
     return { granted: Boolean(isGranted), status: String(requested.status || 'undetermined') };
   } catch {
     return { granted: false, status: 'error' };
@@ -118,7 +122,7 @@ export async function getNotificationPermissionStatus(): Promise<boolean> {
     const settings = await Notifications.getPermissionsAsync();
     return Boolean(
       settings.granted ||
-        settings.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+        settings.ios?.status === IosAuthorizationStatus.PROVISIONAL
     );
   } catch {
     return false;
