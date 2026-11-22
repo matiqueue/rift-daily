@@ -1,16 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --color-rift-bg: #050507;
-  --color-rift-card: rgba(18, 18, 22, 0.72);
-  --color-rift-cardBorder: rgba(255, 255, 255, 0.09);
-  --color-rift-emerald: #10B981;
-  --color-rift-emeraldSoft: rgba(16, 185, 129, 0.14);
-  --color-rift-purple: #8B5CF6;
-  --color-rift-cyan: #06B6D4;
-
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer base {
@@ -18,49 +10,66 @@
     scroll-behavior: smooth;
   }
   body {
-    background-color: #050507;
-    color: #f4f4f5;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
   }
 }
 
-.obsidian-grid {
+.theme-obsidian {
+  --bg: #070708;
+  --bg-elev: #0e0e11;
+  --fg: #f5f5f7;
+  --fg-muted: #8a8a93;
+  --fg-subtle: #55555e;
+  --line: rgba(255, 255, 255, 0.11);
+  --line-strong: rgba(255, 255, 255, 0.24);
+  --accent: #34d399;
+  --invert-bg: #f5f5f7;
+  --invert-fg: #070708;
+}
+
+.theme-paper {
+  --bg: #f4f3ef;
+  --bg-elev: #eae8e1;
+  --fg: #0d0d10;
+  --fg-muted: #55555e;
+  --fg-subtle: #85858f;
+  --line: rgba(13, 13, 16, 0.12);
+  --line-strong: rgba(13, 13, 16, 0.28);
+  --accent: #059669;
+  --invert-bg: #0d0d10;
+  --invert-fg: #f4f3ef;
+}
+
+.editorial-bg {
+  background-color: var(--bg);
+  color: var(--fg);
+  transition: background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s ease;
+}
+
+.hairline-t { border-top: 1px solid var(--line); }
+.hairline-b { border-bottom: 1px solid var(--line); }
+.hairline-l { border-left: 1px solid var(--line); }
+.hairline-r { border-right: 1px solid var(--line); }
+.hairline-all { border: 1px solid var(--line); }
+
+.drafting-bg {
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
+    radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0);
+  background-size: 28px 28px;
 }
 
-.glass-card {
-  background: linear-gradient(180deg, rgba(24, 24, 29, 0.72) 0%, rgba(12, 12, 16, 0.85) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.phone-chassis {
+  box-shadow:
+    0 40px 100px -25px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.06);
 }
 
-.glass-card-hover {
-  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, background 0.25s ease;
-}
-
-.glass-card-hover:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-3px);
-}
-
-.glow-titanium {
-  box-shadow: 0 24px 80px -20px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-.glow-emerald {
-  box-shadow: 0 0 50px -12px rgba(16, 185, 129, 0.25);
-}
-
-@keyframes floatSlow {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-}
-
-.animate-float-slow {
-  animation: floatSlow 6s ease-in-out infinite;
+.theme-paper .phone-chassis {
+  box-shadow:
+    0 35px 80px -20px rgba(13, 13, 16, 0.25),
+    0 0 0 1px rgba(13, 13, 16, 0.16);
 }

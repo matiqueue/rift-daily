@@ -1,39 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LegalPage, LegalRoute } from './components/LegalPages';
-import {
-  Apple,
-  ArrowRight,
-  Bell,
-  BookOpen,
-  Calendar,
-  CheckCircle2,
-  CreditCard,
-  Download,
-  Fingerprint,
-  GraduationCap,
-  Layers,
-  Lock,
-  RefreshCw,
-  Search,
-  Server,
-  ShieldCheck,
-  Smartphone,
-  Sparkles,
-  Sun,
-  Zap,
-} from 'lucide-react';
-
-function GithubIcon({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-      />
-    </svg>
-  );
-}
 
 function resolveLegalRoute(pathname: string): LegalRoute | null {
   const clean = pathname.replace(/\/+$/, '').toLowerCase();
@@ -43,114 +9,135 @@ function resolveLegalRoute(pathname: string): LegalRoute | null {
   return null;
 }
 
-const UNIVERSITIES = [
-  { short: 'UKEN', name: 'Uniwersytet Komisji Edukacji Narodowej w Krakowie', city: 'Kraków', featured: true },
-  { short: 'UJ', name: 'Uniwersytet Jagielloński', city: 'Kraków', featured: true },
-  { short: 'AGH', name: 'Akademia Górniczo-Hutnicza', city: 'Kraków', featured: true },
-  { short: 'UEK', name: 'Uniwersytet Ekonomiczny w Krakowie', city: 'Kraków', featured: true },
-  { short: 'UW', name: 'Uniwersytet Warszawski', city: 'Warszawa', featured: true },
-  { short: 'PW', name: 'Politechnika Warszawska', city: 'Warszawa', featured: true },
-  { short: 'UAM', name: 'Uniwersytet im. Adama Mickiewicza', city: 'Poznań', featured: false },
-  { short: 'PWr', name: 'Politechnika Wrocławska', city: 'Wrocław', featured: false },
-  { short: 'UWr', name: 'Uniwersytet Wrocławski', city: 'Wrocław', featured: false },
-  { short: 'UMK', name: 'Uniwersytet Mikołaja Kopernika', city: 'Toruń', featured: false },
-  { short: 'PG', name: 'Politechnika Gdańska', city: 'Gdańsk', featured: false },
-  { short: 'UG', name: 'Uniwersytet Gdański', city: 'Gdańsk', featured: false },
-  { short: 'UŚ', name: 'Uniwersytet Śląski', city: 'Katowice', featured: false },
-  { short: 'SGH', name: 'Szkoła Główna Handlowa', city: 'Warszawa', featured: false },
-  { short: 'KUL', name: 'Katolicki Uniwersytet Lubelski', city: 'Lublin', featured: false },
-  { short: 'UPJP2', name: 'Uniwersytet Papieski Jana Pawła II', city: 'Kraków', featured: false },
-  { short: 'AWF', name: 'Akademia Wychowania Fizycznego', city: 'Kraków', featured: false },
-  { short: 'UŁ', name: 'Uniwersytet Łódzki', city: 'Łódź', featured: false },
-];
+type ChapterId = 'dzis' | 'plan' | 'dziennik' | 'wiecej' | 'jasny';
 
-type ScreenId = 'dzis' | 'plan' | 'jasny' | 'bezpieczenstwo' | 'logowanie';
+interface Chapter {
+  id: ChapterId;
+  num: string;
+  tab: string;
+  headline: string;
+  summary: string;
+  telemetry: string;
+  src: string;
+}
 
-const SCREENS: Record<
-  ScreenId,
+const CHAPTERS: Chapter[] = [
   {
-    id: ScreenId;
-    label: string;
-    tag: string;
-    title: string;
-    desc: string;
-    highlights: string[];
-    src: string;
-  }
-> = {
-  dzis: {
     id: 'dzis',
-    label: 'Dziś',
-    tag: 'NATYCHMIASTOWY START',
-    title: 'Twój dzień akademicki w ułamku sekundy',
-    desc: 'Lokalna pamięć podręczna wyświetla plan i oceny natychmiast po otwarciu aplikacji, a cicha synchronizacja w tle aktualizuje dane bez blokowania ekranu.',
-    highlights: [
-      'Podgląd trwających i najbliższych zajęć z numerem sali',
-      'Średnia ważona ECTS, liczba kursów i status płatności',
-      'Pigułka statusu „Pobieram najnowsze dane / Zaktualizowano”',
-    ],
+    num: '01',
+    tab: 'Dziś',
+    headline: 'Otwierasz i od razu wiesz, gdzie idziesz.',
+    summary:
+      'Przyklejony nagłówek, trwające i najbliższe zajęcia na osi czasu oraz natychmiastowy start z lokalnej pamięci podręcznej (<200 ms) z dyskretną pigułką aktualizacji w tle.',
+    telemetry: 'CACHE <200MS · LIVE HERO · BACKGROUND SYNC',
     src: '/screen-dzis.png',
   },
-  plan: {
+  {
     id: 'plan',
-    label: 'Plan zajęć',
-    tag: 'KARUZELA DAT',
-    title: 'Płynny plan tygodnia z karuzelą dat',
-    desc: 'Przesuwaj dni ruchem kciuka jak w iOS Timer, wracaj jednym kliknięciem do „DZIŚ” i sprawdzaj okienka między zajęciami oraz prowadzących.',
-    highlights: [
-      'Karuzela dat bez zbędnych przycisków strzałek',
-      'Karty zajęć z budynkiem, salą i kartą wykładowcy',
-      'Inteligentne buforowanie pobranych tygodni',
-    ],
+    num: '02',
+    tab: 'Plan',
+    headline: 'Karuzela dat jak w iOS Timer. Zero strzałek.',
+    summary:
+      'Przesuwaj dni kciukiem z haptyką, wracaj jednym tapnięciem do „DZIŚ”, sprawdzaj okienka między zajęciami, sale i wizytówki prowadzących.',
+    telemetry: 'DATE WHEEL · HAPTICS · SOLO DZIŚ',
     src: '/screen-plan.png',
   },
-  jasny: {
+  {
+    id: 'dziennik',
+    num: '03',
+    tab: 'Dziennik',
+    headline: 'Średnia ważona ECTS i symulator What-If.',
+    summary:
+      'Otwarta typografia zamiast ciężkich boksów: rozkład ocen z protokołów, filtry semestralne i natychmiastowa symulacja wpływu kolejnych egzaminów na średnią.',
+    telemetry: 'GPA ENGINE · ECTS WEIGHTS · WHAT-IF',
+    src: '/screen-dziennik.png',
+  },
+  {
+    id: 'wiecej',
+    num: '04',
+    tab: 'Więcej',
+    headline: 'mLegitymacja, raty IBAN, egzaminy i Face ID.',
+    summary:
+      'Wszystkie narzędzia studenckie pod ręką w przejrzystej macierzy hairline — w tym jednorazowe trwałe czyszczenie danych lokalnych zgodne z RODO.',
+    telemetry: 'ELS CARD · IBAN COPY · FACE ID / PIN',
+    src: '/screen-wiecej.png',
+  },
+  {
     id: 'jasny',
-    label: 'Jasny motyw',
-    tag: 'OBSIDIAN & PAPER',
-    title: 'Dwa dopracowane motywy: ciemny i dzienny',
-    desc: 'Monochromatyczna paleta Titanium / Obsidian w nocy i czysty Paper w dzień — pełna spójność typografii na wszystkich 4 zakładkach.',
-    highlights: [
-      'Czarny, kompaktowy szklany pasek nawigacji',
-      'Wysoki kontrast i czytelność na słońcu',
-      'Płynne przełączanie motywu jednym tapnięciem',
-    ],
+    num: '05',
+    tab: 'Paper Mode',
+    headline: 'Obsidian w nocy. Paper w pełnym słońcu.',
+    summary:
+      'Pełna parytetowość motywu ciemnego i jasnego, zwarty czarny szklany pasek nawigacji oraz zero reklam na żadnym ekranie.',
+    telemetry: 'OBSIDIAN / PAPER · GLASS NAVBAR',
     src: '/screen-jasny.png',
   },
-  bezpieczenstwo: {
-    id: 'bezpieczenstwo',
-    label: 'Prywatność',
-    tag: 'ZERO-SECRET BFF',
-    title: 'Sprzętowe szyfrowanie i Face ID / PIN',
-    desc: 'Zero kluczy API w aplikacji mobilnej. Sesja jest szyfrowana AES-256-GCM, a tokeny spoczywają wyłącznie w iOS Keychain / Android Keystore.',
-    highlights: [
-      'Brak zewnętrznej bazy danych studentów i zero reklam',
-      'Blokada biometryczna Face ID / Touch ID + kod PIN',
-      'Jedno kliknięcie usuwa wszystkie dane lokalne (RODO)',
-    ],
-    src: '/screen-bezpieczenstwo.png',
+];
+
+const SPECS = [
+  {
+    num: '01',
+    title: 'Natychmiastowy start z pamięci',
+    detail:
+      'Lokalna migawka danych akademickich w expo-file-system renderuje plan i oceny w <200 ms. Podczas cichej synchronizacji w tle pigułka u góry informuje o pobraniu nowych danych.',
+    tag: 'OFFLINE-FIRST',
   },
-  logowanie: {
-    id: 'logowanie',
-    label: 'Uczelnie',
-    tag: '50+ UCZELNI USOS',
-    title: 'Oficjalne logowanie OAuth 1.0a',
-    desc: 'Logujesz się wyłącznie na oficjalnej stronie CAS / USOSweb swojej uczelni w bezpiecznym oknie ASWebAuthenticationSession — Rift Daily nigdy nie widzi Twojego hasła.',
-    highlights: [
-      'Obsługa UKEN, UJ, AGH, UEK, UW, PW, UAM, UMK i 50+ innych',
-      'Logowanie w 15 sekund bez ręcznego wpisywania kluczy',
-      'Pełna zgodność ze standardem bezpieczeństwa Apple',
-    ],
-    src: '/screen-logowanie.png',
+  {
+    num: '02',
+    title: 'Architektura Zero-Secret BFF',
+    detail:
+      'W aplikacji mobilnej nie ma ani jednego sekretu API. Bezstanowe proxy podpisuje żądania OAuth 1.0a w locie, a zaszyfrowana sesja AES-256-GCM zostaje w sprzętowym Keychain.',
+    tag: 'AES-256-GCM',
   },
-};
+  {
+    num: '03',
+    title: 'Ścisły tryb Read-Only (19 metod)',
+    detail:
+      'Aplikacja wyłącznie odczytuje dane z oficjalnego USOS API — posiada serwerową ochronę anty-SSRF, limit 16 KB, 60-sekundowy cache deduplikacji i rate limiting.',
+    tag: 'ZERO DATABASE',
+  },
+  {
+    num: '04',
+    title: 'Lokalne alerty i zmiany planu',
+    detail:
+      'Wykrywanie nowych ocen w protokołach, zmian sal, godzin zajęć i terminów rat z powiadomieniami iOS/Android oraz odświeżaniem w tle.',
+    tag: 'BACKGROUND TASK',
+  },
+  {
+    num: '05',
+    title: '100% darmowe, open-source i bez reklam',
+    detail:
+      'Kod źródłowy jest w pełni publiczny na GitHubie, a każde wydanie przechodzi automatyczny CI/CD (TypeScript, ESLint, Vitest, podpisany build).',
+    tag: 'VERIFIED CI/CD',
+  },
+];
+
+const UNIVERSITIES = [
+  { code: 'UKEN', city: 'Kraków', name: 'Uniwersytet Komisji Edukacji Narodowej' },
+  { code: 'AGH', city: 'Kraków', name: 'Akademia Górniczo-Hutnicza' },
+  { code: 'UJ', city: 'Kraków', name: 'Uniwersytet Jagielloński' },
+  { code: 'UEK', city: 'Kraków', name: 'Uniwersytet Ekonomiczny' },
+  { code: 'UW', city: 'Warszawa', name: 'Uniwersytet Warszawski' },
+  { code: 'PW', city: 'Warszawa', name: 'Politechnika Warszawska' },
+  { code: 'SGH', city: 'Warszawa', name: 'Szkoła Główna Handlowa' },
+  { code: 'UAM', city: 'Poznań', name: 'Uniwersytet im. Adama Mickiewicza' },
+  { code: 'PWr', city: 'Wrocław', name: 'Politechnika Wrocławska' },
+  { code: 'UWr', city: 'Wrocław', name: 'Uniwersytet Wrocławski' },
+  { code: 'UMK', city: 'Toruń', name: 'Uniwersytet Mikołaja Kopernika' },
+  { code: 'PG', city: 'Gdańsk', name: 'Politechnika Gdańska' },
+  { code: 'UŚ', city: 'Katowice', name: 'Uniwersytet Śląski' },
+  { code: 'KUL', city: 'Lublin', name: 'Katolicki Uniwersytet Lubelski' },
+  { code: 'UPJP2', city: 'Kraków', name: 'Uniwersytet Papieski Jana Pawła II' },
+  { code: 'AWF', city: 'Kraków', name: 'Akademia Wychowania Fizycznego' },
+];
 
 export default function App() {
   const [legalRoute, setLegalRoute] = useState<LegalRoute | null>(() =>
     resolveLegalRoute(window.location.pathname)
   );
-  const [activeScreen, setActiveScreen] = useState<ScreenId>('dzis');
-  const [uniQuery, setUniQuery] = useState('');
+  const [mode, setMode] = useState<'obsidian' | 'paper'>('obsidian');
+  const [activeId, setActiveId] = useState<ChapterId>('dzis');
+  const [uniFilter, setUniFilter] = useState('');
 
   useEffect(() => {
     const onPop = () => setLegalRoute(resolveLegalRoute(window.location.pathname));
@@ -165,16 +152,16 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const filteredUniversities = useMemo(() => {
-    const q = uniQuery.trim().toLowerCase();
+  const filteredUnis = useMemo(() => {
+    const q = uniFilter.trim().toLowerCase();
     if (!q) return UNIVERSITIES;
     return UNIVERSITIES.filter(
       (u) =>
-        u.short.toLowerCase().includes(q) ||
+        u.code.toLowerCase().includes(q) ||
         u.name.toLowerCase().includes(q) ||
         u.city.toLowerCase().includes(q)
     );
-  }, [uniQuery]);
+  }, [uniFilter]);
 
   if (legalRoute) {
     return (
@@ -186,481 +173,349 @@ export default function App() {
     );
   }
 
-  const current = SCREENS[activeScreen];
+  const activeChapter = CHAPTERS.find((c) => c.id === activeId) || CHAPTERS[0];
 
   return (
-    <div className="min-h-screen bg-[#050507] text-[#f4f4f5] selection:bg-emerald-500/25 selection:text-emerald-300 overflow-x-hidden">
-      {/* Subtle Architectural Grid & Ambient Glows */}
-      <div className="fixed inset-0 obsidian-grid pointer-events-none opacity-60 -z-20" />
-      <div className="fixed top-[-140px] left-1/2 -translate-x-1/2 w-[1000px] h-[520px] bg-gradient-to-b from-zinc-700/20 via-emerald-500/8 to-transparent blur-[120px] rounded-full pointer-events-none -z-10" />
-      <div className="fixed bottom-[-180px] right-[-120px] w-[620px] h-[520px] bg-emerald-500/8 blur-[150px] rounded-full pointer-events-none -z-10" />
-
-      {/* 1. Sticky Glass Navbar */}
-      <header className="sticky top-0 z-50 backdrop-blur-2xl bg-[#050507]/75 border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="flex items-center gap-3 group text-left"
-          >
+    <div className={`${mode === 'obsidian' ? 'theme-obsidian' : 'theme-paper'} editorial-bg min-h-screen`}>
+      {/* 1. Architectural Top Bar — pure 1px hairline discipline */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl hairline-b" style={{ backgroundColor: 'color-mix(in srgb, var(--bg) 82%, transparent)' }}>
+        <div className="max-w-[1320px] mx-auto px-5 sm:px-8 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
             <img
               src="/icon.png"
               alt="Rift Daily"
-              className="w-9 h-9 rounded-xl border border-white/15 shadow-md group-hover:scale-105 transition-transform"
+              className="w-6 h-6 rounded-[6px] hairline-all"
             />
-            <div className="flex items-center gap-2.5">
-              <span className="font-extrabold text-base sm:text-lg tracking-tight text-white">
-                Rift Daily
-              </span>
-              <span className="text-[10px] font-mono font-bold bg-white/[0.07] text-zinc-200 border border-white/10 px-2 py-0.5 rounded-full">
-                v3.1.2
-              </span>
-            </div>
-          </button>
+            <span className="font-mono text-xs font-bold tracking-[0.14em] uppercase">
+              RIFT DAILY
+            </span>
+            <span className="hidden sm:inline font-mono text-[11px]" style={{ color: 'var(--fg-subtle)' }}>
+              // v3.1.2
+            </span>
+          </div>
 
-          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            <a href="#showcase" className="hover:text-white transition-colors">Podgląd</a>
-            <a href="#features" className="hover:text-white transition-colors">Funkcje</a>
-            <a href="#security" className="hover:text-white transition-colors">Zero-Secret</a>
-            <a href="#universities" className="hover:text-white transition-colors">Uczelnie</a>
-            <a href="#download" className="hover:text-emerald-400 transition-colors">Pobierz</a>
+          <nav className="hidden md:flex items-center gap-8 font-mono text-[11px] tracking-[0.12em] uppercase" style={{ color: 'var(--fg-muted)' }}>
+            <a href="#interfejs" className="hover:opacity-100 opacity-75 transition-opacity">Interfejs</a>
+            <a href="#architektura" className="hover:opacity-100 opacity-75 transition-opacity">Specyfikacja</a>
+            <a href="#uczelnie" className="hover:opacity-100 opacity-75 transition-opacity">Uczelnie</a>
+            <a href="#pobierz" className="hover:opacity-100 opacity-75 transition-opacity">Pobierz</a>
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMode((m) => (m === 'obsidian' ? 'paper' : 'obsidian'))}
+              className="font-mono text-[10px] tracking-[0.14em] uppercase px-2.5 py-1 hairline-all cursor-pointer transition-opacity hover:opacity-80"
+              style={{ color: 'var(--fg-muted)' }}
+            >
+              {mode === 'obsidian' ? 'PAPER ○' : 'OBSIDIAN ●'}
+            </button>
+
             <a
-              href="https://github.com/matiqueue/rift-daily"
+              href="https://apps.apple.com/app/id6837895381"
               target="_blank"
               rel="noreferrer"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-zinc-200 transition-all"
+              className="font-mono text-[10px] font-bold tracking-[0.14em] uppercase px-3 py-1.5 transition-opacity hover:opacity-85"
+              style={{ backgroundColor: 'var(--invert-bg)', color: 'var(--invert-fg)' }}
             >
-              <GithubIcon className="w-3.5 h-3.5" />
-              <span>GitHub</span>
-            </a>
-            <a
-              href="#download"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white text-black hover:bg-zinc-200 text-xs font-extrabold transition-all active:scale-95"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Pobierz</span>
+              APP STORE ↗
             </a>
           </div>
         </div>
       </header>
 
-      {/* 2. Editorial Split Hero */}
-      <section className="relative pt-14 pb-20 lg:pt-24 lg:pb-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 items-center">
-          {/* Left Copy */}
-          <div className="lg:col-span-6 space-y-7 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/10 bg-white/[0.04] text-zinc-300 text-xs font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>iOS App Store & Android · Natychmiastowy cache offline</span>
-            </div>
+      {/* 2. Editorial Masthead Hero */}
+      <section className="max-w-[1320px] mx-auto px-5 sm:px-8 pt-14 pb-16 lg:pt-20 lg:pb-24">
+        {/* Live Telemetry Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-6 hairline-b font-mono text-[11px] tracking-[0.1em] uppercase" style={{ color: 'var(--fg-muted)' }}>
+          <div className="flex items-center gap-2.5">
+            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--accent)' }} />
+            <span>POLSKI E-DZIENNIK USOS API</span>
+          </div>
+          <div className="flex items-center gap-5">
+            <span>50+ UCZELNI</span>
+            <span>ZERO REKLAM</span>
+            <span>OAUTH 1.0A</span>
+          </div>
+        </div>
 
-            <h1 className="text-4xl sm:text-6xl font-black tracking-[-0.03em] leading-[1.05] text-white">
-              USOS, który działa{' '}
-              <span className="bg-gradient-to-r from-white via-zinc-300 to-emerald-400 bg-clip-text text-transparent">
-                tak szybko, jak powinien.
-              </span>
+        {/* Giant Asymmetric Title + Action Rail */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 lg:pt-14 items-end">
+          <div className="lg:col-span-8">
+            <h1 className="text-[clamp(2.8rem,7.8vw,6.8rem)] font-black leading-[0.94] tracking-[-0.045em]">
+              Plan, oceny
+              <br />
+              i USOS bez
+              <br />
+              <span style={{ color: 'var(--fg-muted)' }}>zbędnego szumu.</span>
             </h1>
+          </div>
 
-            <p className="text-base sm:text-lg text-zinc-400 leading-relaxed max-w-xl mx-auto lg:mx-0">
-              Minimalistyczny e-Dziennik akademicki dla polskich uczelni. Plan zajęć z karuzelą dat,
-              średnia ważona ECTS, egzaminy, mLegitymacja i automatyczna synchronizacja w tle — bez reklam i bez zewnętrznych baz danych.
+          <div className="lg:col-span-4 space-y-6 lg:pb-2">
+            <p className="text-sm sm:text-[15px] leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+              Niezależny, natywny klient akademicki na iOS i Androida. Zaprojektowany jak precyzyjny instrument — ładuje dane z pamięci w ułamku sekundy i aktualizuje się cicho w tle.
             </p>
 
-            {/* Primary CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-1">
+            <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5">
               <a
                 href="https://apps.apple.com/app/id6837895381"
                 target="_blank"
                 rel="noreferrer"
-                className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-white hover:bg-zinc-200 text-black font-extrabold text-sm transition-all shadow-xl shadow-white/10 active:scale-95"
+                className="flex items-center justify-between px-5 py-3.5 font-mono text-xs font-bold tracking-[0.1em] uppercase transition-opacity hover:opacity-85"
+                style={{ backgroundColor: 'var(--invert-bg)', color: 'var(--invert-fg)' }}
               >
-                <Apple className="w-4 h-4 fill-current" />
-                <span>App Store (iOS)</span>
+                <span>Pobierz na iOS (App Store)</span>
+                <span>↗</span>
               </a>
 
               <a
                 href="https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk"
-                className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-300 font-bold text-sm transition-all active:scale-95"
+                className="flex items-center justify-between px-5 py-3.5 font-mono text-xs font-bold tracking-[0.1em] uppercase hairline-all transition-opacity hover:opacity-75"
               >
-                <Download className="w-4 h-4" />
                 <span>Pobierz APK (Android)</span>
+                <span>↓</span>
               </a>
-            </div>
-
-            {/* Key Metrics Strip */}
-            <div className="pt-4 grid grid-cols-3 gap-4 max-w-md mx-auto lg:mx-0 border-t border-white/[0.08]">
-              <div>
-                <div className="text-xl sm:text-2xl font-black font-mono text-white">&lt;200ms</div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">Start z pamięci</div>
-              </div>
-              <div>
-                <div className="text-xl sm:text-2xl font-black font-mono text-white">50+</div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">Uczelni USOS</div>
-              </div>
-              <div>
-                <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400">0 zł</div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">Zero reklam</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: 3-Phone Overlapping Visual Showcase */}
-          <div className="lg:col-span-6 relative flex items-center justify-center min-h-[420px] sm:min-h-[520px]">
-            <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/15 via-transparent to-zinc-500/15 blur-3xl rounded-full pointer-events-none" />
-
-            {/* Left angled phone */}
-            <button
-              type="button"
-              onClick={() => setActiveScreen('plan')}
-              aria-label="Podgląd planu zajęć"
-              className="hidden sm:block absolute left-2 xl:left-4 w-[185px] lg:w-[205px] -rotate-6 translate-y-6 opacity-80 hover:opacity-100 hover:-translate-y-1 transition-all duration-300 rounded-[28px] overflow-hidden border border-white/15 shadow-2xl cursor-pointer"
-            >
-              <img src="/screen-plan.png" alt="Plan zajęć Rift Daily" className="w-full h-auto block" />
-            </button>
-
-            {/* Right angled phone (Light Mode) */}
-            <button
-              type="button"
-              onClick={() => setActiveScreen('jasny')}
-              aria-label="Podgląd jasnego motywu"
-              className="hidden sm:block absolute right-2 xl:right-4 w-[185px] lg:w-[205px] rotate-6 translate-y-6 opacity-80 hover:opacity-100 hover:-translate-y-1 transition-all duration-300 rounded-[28px] overflow-hidden border border-white/15 shadow-2xl cursor-pointer"
-            >
-              <img src="/screen-jasny.png" alt="Motyw jasny Rift Daily" className="w-full h-auto block" />
-            </button>
-
-            {/* Center hero phone */}
-            <div className="relative z-10 w-[235px] sm:w-[255px] animate-float-slow rounded-[34px] overflow-hidden border border-white/20 glow-titanium">
-              <img
-                src={current.src}
-                alt={current.title}
-                className="w-full h-auto block transition-opacity duration-300"
-              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3. Interactive Screen Explorer */}
-      <section id="showcase" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="glass-card rounded-[32px] p-6 sm:p-10 lg:p-12 glow-titanium">
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-8 border-b border-white/[0.07]">
+      {/* 3. Full-Bleed Interactive Interface Stage (NO shadcn cards!) */}
+      <section id="interfejs" className="hairline-t hairline-b drafting-bg">
+        <div className="max-w-[1320px] mx-auto grid grid-cols-1 lg:grid-cols-12">
+          {/* Left: Vertical Editorial Chapter Index */}
+          <div className="lg:col-span-6 lg:hairline-r px-5 sm:px-8 py-12 lg:py-16 flex flex-col justify-between" style={{ backgroundColor: 'color-mix(in srgb, var(--bg) 92%, transparent)' }}>
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-emerald-400 font-bold">
-                Interaktywny podgląd
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
-                4 zakładki. Zero zbędnego chaosu.
+              <div className="font-mono text-[11px] tracking-[0.16em] uppercase mb-8" style={{ color: 'var(--fg-subtle)' }}>
+                INTERFEJS — 4 ZAKŁADKI + DUAL THEME
+              </div>
+
+              <div className="divide-y" style={{ borderColor: 'var(--line)' }}>
+                {CHAPTERS.map((ch) => {
+                  const isActive = ch.id === activeId;
+                  return (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => setActiveId(ch.id)}
+                      className="w-full text-left py-5 flex items-baseline justify-between gap-4 group cursor-pointer transition-opacity"
+                      style={{
+                        borderColor: 'var(--line)',
+                        opacity: isActive ? 1 : 0.48,
+                      }}
+                    >
+                      <div className="flex items-baseline gap-4">
+                        <span className="font-mono text-xs" style={{ color: isActive ? 'var(--accent)' : 'var(--fg-subtle)' }}>
+                          {ch.num}
+                        </span>
+                        <span className="text-xl sm:text-2xl font-bold tracking-tight">
+                          {ch.tab}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] tracking-[0.12em] uppercase hidden sm:inline" style={{ color: 'var(--fg-muted)' }}>
+                        {isActive ? 'AKTYWNY ●' : 'PODGLĄD →'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Active Chapter Editorial Note */}
+            <div className="pt-10 mt-8 hairline-t space-y-3">
+              <div className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--accent)' }}>
+                {activeChapter.telemetry}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-snug">
+                {activeChapter.headline}
+              </h2>
+              <p className="text-sm leading-relaxed max-w-lg" style={{ color: 'var(--fg-muted)' }}>
+                {activeChapter.summary}
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Frameless Hardware Stage */}
+          <div className="lg:col-span-6 px-5 sm:px-8 py-14 lg:py-20 flex flex-col items-center justify-center relative">
+            <div className="w-[270px] sm:w-[310px] rounded-[44px] overflow-hidden phone-chassis bg-black transition-all duration-300">
+              <img
+                key={activeChapter.src}
+                src={activeChapter.src}
+                alt={`Rift Daily — ${activeChapter.tab}`}
+                className="w-full h-auto block"
+              />
+            </div>
+
+            <div className="mt-7 font-mono text-[10px] tracking-[0.16em] uppercase flex items-center gap-3" style={{ color: 'var(--fg-subtle)' }}>
+              <span>EKRAN {activeChapter.num} / 05</span>
+              <span>·</span>
+              <span>PRAWDZIWY WIDOK APLIKACJI v3.1.2</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Architectural Hairline Spec Ledger (Zero Boxes) */}
+      <section id="architektura" className="max-w-[1320px] mx-auto px-5 sm:px-8 py-20 lg:py-28">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-12 hairline-b">
+          <div className="lg:col-span-5">
+            <div className="font-mono text-[11px] tracking-[0.16em] uppercase mb-3" style={{ color: 'var(--fg-subtle)' }}>
+              SPECYFIKACJA TECHNICZNA
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-black tracking-[-0.03em] leading-[1.02]">
+              Bez bazy danych.
+              <br />
+              Bez sekretów w kliencie.
+            </h2>
+          </div>
+
+          {/* Minimalist Schematic Signal Path */}
+          <div className="lg:col-span-7 flex flex-col justify-end">
+            <div className="font-mono text-xs sm:text-[13px] p-5 hairline-all space-y-2" style={{ backgroundColor: 'var(--bg-elev)' }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold">[ iPhone Keychain ]</span>
+                <span style={{ color: 'var(--fg-subtle)' }}>── AES-256-GCM ──▶</span>
+                <span className="font-bold" style={{ color: 'var(--accent)' }}>[ Stateless BFF ]</span>
+                <span style={{ color: 'var(--fg-subtle)' }}>── OAuth 1.0a ──▶</span>
+                <span className="font-bold">[ USOS Uczelni ]</span>
+              </div>
+              <div className="text-[11px]" style={{ color: 'var(--fg-muted)' }}>
+                19 read-only endpoints · anti-SSRF host guard · 60s deduplication cache · zero student PII persisted on server
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Hairline Rows */}
+        <div>
+          {SPECS.map((spec) => (
+            <div
+              key={spec.num}
+              className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8 py-7 hairline-b items-baseline"
+            >
+              <div className="md:col-span-1 font-mono text-xs" style={{ color: 'var(--fg-subtle)' }}>
+                {spec.num}
+              </div>
+              <div className="md:col-span-4 text-lg sm:text-xl font-bold tracking-tight">
+                {spec.title}
+              </div>
+              <div className="md:col-span-5 text-sm leading-relaxed" style={{ color: 'var(--fg-muted)' }}>
+                {spec.detail}
+              </div>
+              <div className="md:col-span-2 md:text-right font-mono text-[10px] tracking-[0.14em] uppercase" style={{ color: 'var(--accent)' }}>
+                {spec.tag}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 5. Editorial University Directory */}
+      <section id="uczelnie" className="hairline-t" style={{ backgroundColor: 'var(--bg-elev)' }}>
+        <div className="max-w-[1320px] mx-auto px-5 sm:px-8 py-20 lg:py-24">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-10 hairline-b">
+            <div>
+              <div className="font-mono text-[11px] tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--fg-subtle)' }}>
+                KOMPATYBILNOŚĆ USOS API
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-[-0.03em]">
+                Ponad 50 uczelni w Polsce.
               </h2>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 p-1 rounded-2xl bg-black/50 border border-white/[0.08]">
-              {(Object.keys(SCREENS) as ScreenId[]).map((id) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveScreen(id)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeScreen === id
-                      ? 'bg-white text-black shadow-sm'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {SCREENS[id].label}
-                </button>
-              ))}
+            <div className="w-full md:w-80">
+              <input
+                type="text"
+                value={uniFilter}
+                onChange={(e) => setUniFilter(e.target.value)}
+                placeholder="Filtruj: UKEN, AGH, UJ, Kraków..."
+                className="w-full bg-transparent pb-2.5 text-sm font-mono focus:outline-none hairline-b"
+                style={{ color: 'var(--fg)', borderColor: 'var(--line-strong)' }}
+              />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center pt-8">
-            <div className="lg:col-span-6 space-y-5">
-              <span className="inline-block text-[10px] font-mono font-bold tracking-[0.18em] text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-md">
-                {current.tag}
-              </span>
-              <h3 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
-                {current.title}
-              </h3>
-              <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
-                {current.desc}
-              </p>
-              <ul className="space-y-3 pt-2">
-                {current.highlights.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-sm text-zinc-200">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="lg:col-span-6 flex justify-center">
-              <div className="w-[260px] sm:w-[295px] rounded-[36px] overflow-hidden border border-white/15 shadow-2xl bg-black">
-                <img
-                  src={current.src}
-                  alt={current.title}
-                  className="w-full h-auto block"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Bento Features Grid */}
-      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="max-w-2xl mb-12">
-          <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">
-            Funkcje v3.1.2
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white mt-2">
-            Zaprojektowane z myślą o codziennym rytmie studiów.
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[
-            {
-              icon: RefreshCw,
-              title: 'Pamięć podręczna + sync w tle',
-              desc: 'Dane ładują się natychmiast z lokalnego dysku, a dyskretny pasek informuje o aktualizacji w tle i potwierdza pobranie najnowszych ocen.',
-            },
-            {
-              icon: Calendar,
-              title: 'Karuzela dat i okienka',
-              desc: 'Płynne przewijanie dat, szybki powrót do „DZIŚ”, odliczanie do najbliższych zajęć i automatyczne wykrywanie przerw między nimi.',
-            },
-            {
-              icon: GraduationCap,
-              title: 'Średnia ECTS i symulator What-If',
-              desc: 'Wyliczanie średniej ważonej w czasie rzeczywistym, filtry ocen w protokołach oraz symulacja wpływu przyszłych egzaminów na średnią.',
-            },
-            {
-              icon: CreditCard,
-              title: 'mLegitymacja, raty i IBAN',
-              desc: 'Cyfrowa legitymacja studencka, nadchodzące terminy płatności z kopiowaniem numeru konta jednym kliknięciem oraz ankiety USOS.',
-            },
-            {
-              icon: Bell,
-              title: 'Lokalne alerty i zmiany planu',
-              desc: 'Powiadomienia o nowej ocenie w protokole, zmianie sali lub godziny zajęć oraz przypomnienia przed wykładami na iOS i Androidzie.',
-            },
-            {
-              icon: Sun,
-              title: 'Obsidian & Paper + Face ID',
-              desc: 'Pełna parytetowość motywu ciemnego i jasnego, kompaktowy szklany pasek nawigacji oraz opcjonalna blokada Face ID / PIN.',
-            },
-          ].map((feat) => (
-            <div
-              key={feat.title}
-              className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col justify-between gap-5"
-            >
-              <div className="w-10 h-10 rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-white">
-                <feat.icon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">{feat.title}</h3>
-                <p className="text-sm text-zinc-400 leading-relaxed mt-2">{feat.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 5. Zero-Secret Security Architecture */}
-      <section id="security" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="glass-card rounded-[32px] p-8 sm:p-12 border border-emerald-500/20 glow-emerald">
-          <div className="max-w-2xl mb-10">
-            <div className="inline-flex items-center gap-2 text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest mb-3">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Architektura Zero-Secret</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-              Twoje dane nigdy nie trafiają do naszej bazy. Bo jej nie mamy.
-            </h2>
-            <p className="text-sm sm:text-base text-zinc-400 mt-3 leading-relaxed">
-              Rift Daily działa w modelu bezstanowym. Serwer BFF jedynie podpisuje kryptograficzne zapytania OAuth 1.0a w locie (z ochroną anty-SSRF, ścisłą listą 19 metod read-only i rate-limitingiem), a zaszyfrowana sesja AES-256-GCM zostaje wyłącznie w sprzętowym Keychain Twojego telefonu.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="rounded-2xl bg-black/45 border border-white/[0.08] p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <Smartphone className="w-5 h-5 text-white" />
-                <span className="text-[11px] font-mono text-zinc-500">01 / KLIENT</span>
-              </div>
-              <h3 className="font-bold text-white">iOS Keychain & Android Keystore</h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Zero sekretów w kodzie aplikacji mobilnej. Token sesji i PIN przechowywane są wyłącznie w sprzętowej enklawie urządzenia.
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-black/45 border border-emerald-500/25 p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <Server className="w-5 h-5 text-emerald-400" />
-                <span className="text-[11px] font-mono text-emerald-400">02 / PROXY BFF</span>
-              </div>
-              <h3 className="font-bold text-white">Bezstanowe Proxy (AES-256-GCM)</h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Klucze USOS żyją wyłącznie w zmiennych środowiskowych serwera. Weryfikacja hosta, 60-sekundowy cache i ochrona przed spamem zapytań.
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-black/45 border border-white/[0.08] p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <Lock className="w-5 h-5 text-white" />
-                <span className="text-[11px] font-mono text-zinc-500">03 / UCZELNIA</span>
-              </div>
-              <h3 className="font-bold text-white">Oficjalne USOS API (Read-Only)</h3>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Logowanie odbywa się bezpośrednio na portalu CAS uczelni. Aplikacja korzysta wyłącznie z odczytu — nigdy nie modyfikuje danych w USOS.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. Interactive University Compatibility Finder */}
-      <section id="universities" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-          <div>
-            <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500 font-bold">
-              Kompatybilność
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white mt-2">
-              Sprawdź swoją uczelnię
-            </h2>
-          </div>
-
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={uniQuery}
-              onChange={(e) => setUniQuery(e.target.value)}
-              placeholder="Szukaj np. UKEN, AGH, UJ, Kraków..."
-              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-white/[0.05] border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-emerald-400/60 transition-colors"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredUniversities.map((u) => (
-            <div
-              key={u.short}
-              className="rounded-2xl bg-white/[0.03] border border-white/[0.07] hover:border-white/15 px-4 py-3.5 flex items-center justify-between gap-3 transition-colors"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-extrabold text-sm text-white">{u.short}</span>
-                  <span className="text-[11px] text-zinc-500">· {u.city}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {filteredUnis.map((u) => (
+              <div key={u.code} className="py-5 pr-6 hairline-b flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm font-extrabold tracking-tight">{u.code}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--fg-subtle)' }}>
+                    {u.city}
+                  </span>
                 </div>
-                <div className="text-xs text-zinc-400 truncate mt-0.5">{u.name}</div>
+                <span className="text-xs leading-snug" style={{ color: 'var(--fg-muted)' }}>
+                  {u.name}
+                </span>
               </div>
-              <span className="shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                USOS API
-              </span>
+            ))}
+          </div>
+
+          {filteredUnis.length === 0 && (
+            <p className="py-10 font-mono text-xs" style={{ color: 'var(--fg-muted)' }}>
+              Pełna lista ponad 50 uczelni USOS pobierana jest automatycznie w aplikacji.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* 6. Monumental Download & Legal Footer */}
+      <footer id="pobierz" className="hairline-t">
+        <div className="max-w-[1320px] mx-auto px-5 sm:px-8 py-16 lg:py-24">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end pb-14 hairline-b">
+            <div className="lg:col-span-7">
+              <div className="font-mono text-[11px] tracking-[0.16em] uppercase mb-3" style={{ color: 'var(--accent)' }}>
+                WYDANIE v3.1.2 · OPEN SOURCE
+              </div>
+              <h2 className="text-4xl sm:text-6xl font-black tracking-[-0.04em] leading-[0.98]">
+                Zacznij korzystać
+                <br />
+                z Rift Daily.
+              </h2>
             </div>
-          ))}
-        </div>
 
-        {filteredUniversities.length === 0 && (
-          <div className="text-center py-10 text-sm text-zinc-400 glass-card rounded-2xl mt-4">
-            Aplikacja automatycznie pobiera pełny katalog <b>ponad 50 polskich uczelni USOS</b> bezpośrednio po uruchomieniu.
-          </div>
-        )}
-      </section>
-
-      {/* 7. Download CTA Section */}
-      <section id="download" className="py-20 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
-        <div className="glass-card rounded-[36px] p-8 sm:p-14 text-center space-y-6 border border-white/10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] border border-white/10 text-xs font-mono text-zinc-300">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Rift Daily v3.1.2 · Open Source</span>
-          </div>
-
-          <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
-            Gotowy na szybszy USOS?
-          </h2>
-
-          <p className="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto">
-            Pobierz aplikację na iPhone&apos;a z App Store lub zainstaluj podpisane wydanie APK na Androida prosto z GitHub Releases.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
-            <a
-              href="https://apps.apple.com/app/id6837895381"
-              target="_blank"
-              rel="noreferrer"
-              className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-7 py-4 rounded-2xl bg-white hover:bg-zinc-200 text-black font-extrabold text-sm transition-all active:scale-95"
-            >
-              <Apple className="w-4 h-4 fill-current" />
-              <span>Pobierz z App Store</span>
-              <ArrowRight className="w-4 h-4" />
-            </a>
-
-            <a
-              href="https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk"
-              className="w-full sm:w-auto flex items-center justify-center gap-2.5 px-7 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm transition-all active:scale-95"
-            >
-              <Download className="w-4 h-4" />
-              <span>Pobierz RiftDaily.apk</span>
-            </a>
-
-            <a
-              href="https://github.com/matiqueue/rift-daily"
-              target="_blank"
-              rel="noreferrer"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-4 rounded-2xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 text-sm font-bold transition-all"
-            >
-              <GithubIcon className="w-4 h-4" />
-              <span>Kod źródłowy</span>
-            </a>
+            <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <a
+                href="https://apps.apple.com/app/id6837895381"
+                target="_blank"
+                rel="noreferrer"
+                className="px-5 py-4 font-mono text-xs font-bold tracking-[0.1em] uppercase flex items-center justify-between transition-opacity hover:opacity-85"
+                style={{ backgroundColor: 'var(--invert-bg)', color: 'var(--invert-fg)' }}
+              >
+                <span>App Store</span>
+                <span>↗</span>
+              </a>
+              <a
+                href="https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk"
+                className="px-5 py-4 font-mono text-xs font-bold tracking-[0.1em] uppercase hairline-all flex items-center justify-between transition-opacity hover:opacity-75"
+              >
+                <span>Android APK</span>
+                <span>↓</span>
+              </a>
+            </div>
           </div>
 
-          <div className="pt-4 flex flex-wrap items-center justify-center gap-5 text-xs text-zinc-500">
-            <span className="flex items-center gap-1.5"><Fingerprint className="w-3.5 h-3.5" /> Face ID / Biometria</span>
-            <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> Expo SDK 58</span>
-            <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> 100% Darmowe</span>
-            <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" /> Automatyczny build CI/CD</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 8. Footer */}
-      <footer className="border-t border-white/[0.07] py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
-          <div className="flex items-center gap-2.5">
-            <img src="/icon.png" alt="Rift Daily" className="w-5 h-5 rounded-md" />
-            <span>© 2026 Szymon Góral · Rift Daily v3.1.2</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-5">
-            <button
-              onClick={() => navigateLegal('privacy')}
-              className="hover:text-white transition-colors cursor-pointer"
-            >
-              Polityka prywatności
-            </button>
-            <button
-              onClick={() => navigateLegal('terms')}
-              className="hover:text-white transition-colors cursor-pointer"
-            >
-              Regulamin
-            </button>
-            <button
-              onClick={() => navigateLegal('support')}
-              className="hover:text-white transition-colors cursor-pointer"
-            >
-              Pomoc i kontakt
-            </button>
-            <a
-              href="https://github.com/matiqueue/rift-daily"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              GitHub
-            </a>
+          <div className="pt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 font-mono text-[11px]" style={{ color: 'var(--fg-subtle)' }}>
+            <span>© 2026 SZYMON GÓRAL · RIFT DAILY</span>
+            <div className="flex flex-wrap items-center gap-6 uppercase tracking-[0.1em]">
+              <button onClick={() => navigateLegal('privacy')} className="hover:opacity-100 opacity-80 cursor-pointer">
+                Prywatność
+              </button>
+              <button onClick={() => navigateLegal('terms')} className="hover:opacity-100 opacity-80 cursor-pointer">
+                Regulamin
+              </button>
+              <button onClick={() => navigateLegal('support')} className="hover:opacity-100 opacity-80 cursor-pointer">
+                Pomoc
+              </button>
+              <a
+                href="https://github.com/matiqueue/rift-daily"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:opacity-100 opacity-80"
+              >
+                GitHub ↗
+              </a>
+            </div>
           </div>
         </div>
       </footer>

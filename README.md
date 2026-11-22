@@ -43,9 +43,9 @@
       <img src="./assets/appstore-screenshots/02-plan.png" alt="Rift Daily Plan" width="250" />
     </td>
     <td align="center" width="33%">
-      <b>☀️ Motyw Jasny (Paper)</b><br />
-      <sub>Pełna parytetowość Obsidian & Paper</sub><br /><br />
-      <img src="./assets/appstore-screenshots/03-jasny.png" alt="Rift Daily Jasny Motyw" width="250" />
+      <b>🎓 Dziennik ocen i ECTS</b><br />
+      <sub>Średnia ważona, filtry i symulator What-If</sub><br /><br />
+      <img src="./assets/appstore-screenshots/03-dziennik.png" alt="Rift Daily Dziennik" width="250" />
     </td>
   </tr>
 </table>
@@ -55,14 +55,14 @@
 <table>
   <tr>
     <td align="center" width="50%">
-      <b>🔐 Bezpieczeństwo i Prywatność</b><br />
-      <sub>Zero-Secret BFF, Keychain / Keystore, Face ID & PIN</sub><br /><br />
-      <img src="./assets/appstore-screenshots/04-bezpieczenstwo.png" alt="Rift Daily Bezpieczeństwo" width="250" />
+      <b>🧩 Moduły i Prywatność</b><br />
+      <sub>mLegitymacja, raty IBAN, Face ID i Zero-Secret BFF</sub><br /><br />
+      <img src="./assets/appstore-screenshots/04-wiecej.png" alt="Rift Daily Więcej" width="250" />
     </td>
     <td align="center" width="50%">
-      <b>🏛️ Logowanie USOS OAuth 1.0a</b><br />
-      <sub>50+ polskich uczelni bezpośrednio na portalu CAS</sub><br /><br />
-      <img src="./assets/appstore-screenshots/05-logowanie.png" alt="Rift Daily Logowanie" width="250" />
+      <b>☀️ Motyw Jasny (Paper)</b><br />
+      <sub>Pełna parytetowość Obsidian & Paper na 4 zakładkach</sub><br /><br />
+      <img src="./assets/appstore-screenshots/05-logowanie.png" alt="Rift Daily Paper Mode" width="250" />
     </td>
   </tr>
 </table>
