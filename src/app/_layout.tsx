@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { SecurityGateOverlay } from '@/components/SecurityGateOverlay';
+import { SyncStatusBanner } from '@/components/SyncStatusBanner';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { registerBackgroundSyncAsync } from '@/services/backgroundSync';
 import { useUsosStore } from '@/store/useUsosStore';
@@ -28,7 +29,7 @@ export default function RootLayout() {
   useEffect(() => {
     hydrate().finally(() => {
       SplashScreen.hideAsync().catch(() => {});
-      setTimeout(() => setBootFinished(true), 650);
+      setTimeout(() => setBootFinished(true), 250);
     });
   }, [hydrate]);
 
@@ -117,6 +118,10 @@ export default function RootLayout() {
             }}
           />
         </Stack>
+      )}
+
+      {!showInitialLoader && isAuthenticated && !isLocked && securityConfigured && (
+        <SyncStatusBanner />
       )}
 
       {showInitialLoader && (

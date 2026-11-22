@@ -3,7 +3,7 @@
     "name": "Rift Daily",
     "slug": "rift-daily",
     "description": "Rift Daily - Mobilny e-Dziennik Studencki USOS (iOS & Android)",
-    "version": "1.2.0",
+    "version": "3.1.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "riftdaily",
@@ -17,11 +17,11 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Rift Daily używa Face ID do szybkiego odblokowywania dostępu do e-Dziennika USOS."
       },
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "package": "pl.matique.riftdaily",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#09090B",
         "foregroundImage": "./assets/images/icon.png"

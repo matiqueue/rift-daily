@@ -1,4 +1,4 @@
-name: CI — Typecheck, Tests & Build
+name: CI — Typecheck, Lint, Tests & Build
 
 on:
   push:
@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   verify:
-    name: TypeScript, Vitest, Expo Config & Website
+    name: TypeScript, ESLint, Vitest, Expo Config & Website
     runs-on: ubuntu-latest
 
     steps:
@@ -30,6 +30,9 @@ jobs:
 
       - name: Run TypeScript typecheck (mobile)
         run: npx tsc --noEmit
+
+      - name: Run ESLint & React Compiler check
+        run: npx expo lint
 
       - name: Run Vitest unit tests
         run: npm test

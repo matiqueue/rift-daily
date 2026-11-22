@@ -1,52 +1,51 @@
 <div align="center">
 
-<img src="./docs/assets/rift-daily-hero.svg" alt="Rift Daily Hero Banner" width="100%" />
+<img src="./assets/appstore-header-search/product-page-header-3840x1646.png" alt="Rift Daily Showcase" width="100%" />
 
 <br />
 
-### Nowoczesny, superszybki mobilny **e-Dziennik Studencki USOS** na iOS i Androida
+### Nowoczesny, minimalistyczny mobilny **e-Dziennik Studencki USOS** na iOS i Androida
 
-[![License: Non-Commercial Free](https://img.shields.io/badge/License-Non--Commercial_100%25_Free-10B981.svg?style=for-the-badge)](./LICENSE)
+[![App Store](https://img.shields.io/badge/App_Store-iOS-000000.svg?style=for-the-badge&logo=apple)](https://apps.apple.com/app/id6837895381)
 [![GitHub Releases](https://img.shields.io/badge/Pobierz_APK-GitHub_Releases-10B981.svg?style=for-the-badge&logo=android)](https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk)
-[![Strona WWW](https://img.shields.io/badge/Strona_WWW-Vercel-06B6D4.svg?style=for-the-badge&logo=vercel)](https://riftdaily.vercel.app)
+[![Strona WWW](https://img.shields.io/badge/Strona_WWW-rift--daily.vercel.app-06B6D4.svg?style=for-the-badge&logo=vercel)](https://rift-daily.vercel.app)
+[![CI](https://github.com/matiqueue/rift-daily/actions/workflows/ci.yml/badge.svg)](https://github.com/matiqueue/rift-daily/actions/workflows/ci.yml)
 [![Expo SDK 58](https://img.shields.io/badge/Expo_SDK-58.0-818CF8.svg?style=for-the-badge&logo=expo)](https://docs.expo.dev/)
-[![React Native](https://img.shields.io/badge/React_Native-0.88-38BDF8.svg?style=for-the-badge&logo=react)](https://reactnative.dev/)
-[![CI / CD](https://img.shields.io/badge/GitHub_Actions-Android_APK_Build-22C55E.svg?style=for-the-badge&logo=githubactions)](#-automatyczne-budowanie-apk-w-github-actions-cicd)
+[![License: Non-Commercial Free](https://img.shields.io/badge/License-100%25_Free-10B981.svg?style=for-the-badge)](./LICENSE)
 
 <p align="center">
-  <b>Rift Daily</b> to zaprojektowany od podstaw kliencki e-dziennik akademicki w estetyce <b>Linear / Vercel Bento UI</b>, łączący się bezpośrednio z oficjalnym serwerem <b>USOS API (OAuth 1.0a)</b> polskich uczelni wyższych (m.in. <b>UKEN Kraków, UJ, AGH, PK, UEK, UW, PW, UAM, PWr, UWr, UMK, UŚ, PG, PŁ, KUL, SGH</b> i ponad 80 innych).
+  <b>Rift Daily</b> to szybki, niezależny klient akademicki w monochromatycznej estetyce <b>Titanium / Obsidian / Paper</b>, łączący się z oficjalnym serwerem <b>USOS API (OAuth 1.0a)</b> ponad 50 polskich uczelni (m.in. <b>UKEN, UJ, AGH, UEK, UW, PW, UAM, PWr, UWr, UMK, PG, UŚ, SGH, KUL</b>) przez bezstanowe, szyfrowane proxy <b>Zero-Secret BFF</b>.
 </p>
 
 <p align="center">
-  🌐 <b><a href="https://riftdaily.vercel.app">Oficjalna strona projektu: riftdaily.vercel.app</a></b> &nbsp;•&nbsp;
-  🚀 <b><a href="https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk">Pobierz RiftDaily.apk na Androida</a></b>
+  🌐 <b><a href="https://rift-daily.vercel.app">rift-daily.vercel.app</a></b> &nbsp;•&nbsp;
+  🍎 <b><a href="https://apps.apple.com/app/id6837895381">App Store (iOS)</a></b> &nbsp;•&nbsp;
+  🤖 <b><a href="https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk">Pobierz APK (Android)</a></b>
 </p>
-
-[**⭐ Jeśli aplikacja Ci się podoba, to zostaw gwiazdkę (Star) na GitHubie!**](https://github.com/matiqueue/rift-daily/stargazers)
 
 </div>
 
 ---
 
-## 📱 Prawdziwe zrzuty ekranu z aplikacji (Real App Screenshots)
+## 📱 Zrzuty ekranu (v3.1.2)
 
 <div align="center">
 <table>
   <tr>
     <td align="center" width="33%">
-      <b>🌙 Dziennik (Motyw Ciemny)</b><br />
-      <sub>Najbliższe zajęcia + Bento Grid</sub><br /><br />
-      <img src="./docs/assets/screen-dashboard-dark.png" alt="Rift Daily Dashboard Dark Mode" width="260" />
+      <b>🌙 Ekran „Dziś”</b><br />
+      <sub>Bieżące zajęcia, średnia ECTS i szybki start z pamięci</sub><br /><br />
+      <img src="./assets/appstore-screenshots/01-dzis.png" alt="Rift Daily Dziś" width="250" />
     </td>
     <td align="center" width="33%">
-      <b>☀️ Dziennik (Motyw Jasny)</b><br />
-      <sub>Clean Daylight Paper UI</sub><br /><br />
-      <img src="./docs/assets/screen-dashboard-light.png" alt="Rift Daily Dashboard Light Mode" width="260" />
+      <b>🗓️ Plan zajęć</b><br />
+      <sub>Karuzela dat, okienka i prowadzący</sub><br /><br />
+      <img src="./assets/appstore-screenshots/02-plan.png" alt="Rift Daily Plan" width="250" />
     </td>
     <td align="center" width="33%">
-      <b>🗓️ Plan Zajęć USOS</b><br />
-      <sub>Najbliższe zajęcia i sale</sub><br /><br />
-      <img src="./docs/assets/screen-timetable-dark.png" alt="Rift Daily Timetable Dark Mode" width="260" />
+      <b>☀️ Motyw Jasny (Paper)</b><br />
+      <sub>Pełna parytetowość Obsidian & Paper</sub><br /><br />
+      <img src="./assets/appstore-screenshots/03-jasny.png" alt="Rift Daily Jasny Motyw" width="250" />
     </td>
   </tr>
 </table>
@@ -56,14 +55,14 @@
 <table>
   <tr>
     <td align="center" width="50%">
-      <b>🔔 Ustawienia i Powiadomienia USOS</b><br />
-      <sub>Wybór alertów o zmianach godzin, ocenach, zadaniach i ratach</sub><br /><br />
-      <img src="./docs/assets/screen-settings-dark.png" alt="Rift Daily Settings and Notifications" width="260" />
+      <b>🔐 Bezpieczeństwo i Prywatność</b><br />
+      <sub>Zero-Secret BFF, Keychain / Keystore, Face ID & PIN</sub><br /><br />
+      <img src="./assets/appstore-screenshots/04-bezpieczenstwo.png" alt="Rift Daily Bezpieczeństwo" width="250" />
     </td>
     <td align="center" width="50%">
-      <b>🏛️ Wybór Uczelni (86 uczelni USOS)</b><br />
-      <sub>UKEN Kraków jako Top 1 + logowanie OAuth 1.0a</sub><br /><br />
-      <img src="./docs/assets/screen-login-dark.png" alt="Rift Daily University Selector" width="260" />
+      <b>🏛️ Logowanie USOS OAuth 1.0a</b><br />
+      <sub>50+ polskich uczelni bezpośrednio na portalu CAS</sub><br /><br />
+      <img src="./assets/appstore-screenshots/05-logowanie.png" alt="Rift Daily Logowanie" width="250" />
     </td>
   </tr>
 </table>
@@ -71,224 +70,77 @@
 
 ---
 
-## 🚀 Najważniejsze funkcje
+## ✨ Co nowego i najważniejsze funkcje
 
-| Moduł | Opis możliwości | Endpointy USOS API / Natywne |
-| :--- | :--- | :--- |
-| **⏱️ Karta „Najbliższe Zajęcia” na żywo** | Natychmiastowy podgląd aktualnie trwających lub najbliższych zajęć na samej górze ekranu głównego i planu zajęć (odliczanie czasu, numer sali, budynek, prowadzący oraz kolejne zajęcia po nich). | `services/tt/user` + `timetableUtils.ts` |
-| **🔔 Powiadomienia o zmianach planu, ocenach i zadaniach** | Alerty o zmianie godzin lekcji lub sal, przypomnienia przed zajęciami (`15/30/60 min`), nowe oceny w protokołach, punkty z zadań/kolokwiów (`crstests`) oraz terminy rat (obsługa iOS & kanałów powiadomień Android `POST_NOTIFICATIONS`). | `expo-notifications` + silnik detekcji zmian |
-| **⚙️ Dedykowana zakładka Ustawienia** | Pełna kontrola preferencji powiadomień (osobne przełączniki na co mają przychodzić alerty), tester powiadomień na żywo, historia zmian, motyw i blokada PIN/Biometria. | `src/app/(tabs)/settings.tsx` |
-| **🔍 Globalna wyszukiwarka na górze ekranu** | Błyskawiczne przeszukiwanie przedmiotów, prowadzących, sal, ocen i modułów prosto z paska nad kartą studenta. | Lokalny indeks + `services/users/search2` |
-| **🔐 Domyślna blokada Face ID / Biometria + PIN** | Konfiguracja 4-cyfrowego kodu PIN oraz biometrii (Face ID / Touch ID na iOS, czytnik linii papilarnych / rozpoznawanie twarzy na Androidzie). | `expo-local-authentication` + `expo-secure-store` |
-| **📊 Asymetryczny Bento Dashboard** | Szybki podgląd średniej ważonej (`GPA`), punktów `ECTS`, liczby kursów, najbliższej raty do opłacenia oraz aktualnego planu. | `services/grades/*` + `services/courses/*` |
-| **🎓 Oceny, Rozkład i Symulator ECTS** | Wielowarstwowe pobieranie ocen z protokołów (`terms2`, `latest`, `course_editions`), wykres rozkładu ocen i symulator „What-If”. | `services/grades/terms2` + `services/grades/latest` |
-| **👨‍🏫 Katalog Wykładowców w HD** | Pełne tytuły naukowe (`dr`, `dr hab.`, `prof.`), portrety w wysokiej rozdzielczości (`original`/`400x500`), pokoje, e-maile i godziny konsultacji. | `services/users/users` + `services/users/search2` |
-| **💳 Naprawione Raty, IBAN i Przelewy** | Dokładne wyliczanie kwot poszczególnych rat z planów ratalnych (`chosen_installment_plan`), kopiowanie konta IBAN jednym kliknięciem oraz bezpośrednie przejście do płatności USOSweb. | `services/payments/user_payments` + `user_accounts` |
-| **🪪 Elektroniczna Legitymacja (ELS)** | Cyfrowa karta studenta ze zdjęciem w wysokiej rozdzielczości, numerem albumu, kodem kreskowym karty bibliotecznej i kodem QR. | `services/cards/user_cards` + `services/users/user` |
+- **⚡ Natychmiastowy start z pamięci podręcznej + pigułka synchronizacji**: aplikacja ładuje ostatnią migawkę planu, ocen i kursów w <200 ms, a dyskretna pigułka u góry ekranu informuje o aktualizacji w tle (*„Pobieram najnowsze dane...”* → *„Zaktualizowano dane”*).
+- **🧭 4 przejrzyste zakładki (`Dziś`, `Plan`, `Dziennik`, `Więcej`)**: kompaktowy, czarny szklany pasek nawigacji (`FloatingGlassTabBar`), przyklejony nagłówek *„Cześć, …”* i karuzela dat z przyciskiem `DZIŚ`.
+- **🎓 Dziennik ocen i symulator ECTS**: średnia ważona w czasie rzeczywistym, filtry ocen, podział na semestry i symulator „What-If”.
+- **🪪 Moduły studenckie**: mLegitymacja (ELS), egzaminy, raty i kopiowanie numeru IBAN jednym kliknięciem, ankiety oraz wyszukiwarka kadry.
+- **🔒 Architektura Zero-Secret (Vercel BFF)**:
+  - Zero kluczy `USOS_SECRET_*` w kodzie mobilnym — wszystkie sekrety żyją wyłącznie w Vercel Environment Variables (`--sensitive`).
+  - Bezstanowe szyfrowane sesje **AES-256-GCM**, przechowywane wyłącznie w **iOS Keychain / Android Keystore** (`expo-secure-store`, `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`).
+  - Ochrona anty-SSRF, ścisła biała lista 19 metod read-only USOS API, 60-sekundowy cache deduplikacji i rate limiting.
+  - Zero reklam, zero zewnętrznych baz danych studentów i natychmiastowe usunięcie danych lokalnych w Ustawieniach.
 
 ---
 
-## 🛠️ Instrukcja instalacji i uruchomienia (iOS & Android)
-
-### Krok 1: Klonowanie i instalacja pakietów
+## 🛠️ Uruchomienie lokalne (Development)
 
 ```bash
 git clone https://github.com/matiqueue/rift-daily.git
 cd rift-daily
 npm install
+cp .env.example .env.local
 ```
 
----
-
-### 🤖 Uruchomienie i instalacja na **Androidzie**
-
-Aplikacja **Rift Daily** jest w pełni przystosowana pod system **Android** (obsługuje natywne kanały powiadomień `AndroidImportance.MAX`, uprawnienia `POST_NOTIFICATIONS` dla Androida 13+, czytnik linii papilarnych / biometrię `USE_BIOMETRIC`, adaptacyjną ikonę oraz głębokie linkowanie `riftdaily://oauth-callback` dla logowania USOS).
-
----
-
-#### 🚀 Opcja A (Najprostsza): Pobierz gotowy plik `.apk` z GitHub Releases (Bez instalowania czegokolwiek)
-
-Dzięki wbudowanemu workflow **GitHub Actions**, każde oficjalne wydanie aplikacji jest automatycznie kompilowane w chmurze i udostępniane w postaci gotowego pliku instalacyjnego:
-
-1. **Pobierz plik**: Kliknij bezpośredni link na telefonie z systemem Android:
-   👉 **[Pobierz najnowszy RiftDaily.apk (GitHub Releases)](https://github.com/matiqueue/rift-daily/releases/latest/download/RiftDaily.apk)**
-2. **Otwórz plik**: Po zakończeniu pobierania kliknij powiadomienie lub znajdź plik w folderze *Pobrane (Downloads)* na telefonie.
-3. **Zezwól na instalację**: Jeśli system Android wyświetli monit bezpieczeństwa o instalacji z nieznanego źródła (przeglądarki), kliknij **Ustawienia** i włącz suwak **„Zezwalaj z tego źródła”**.
-4. **Zaloguj się**: Uruchom Rift Daily, wybierz swoją uczelnię i zaloguj się oficjalnym kontem USOS.
-
----
-
-#### Opcja B: Uruchomienie bezpośrednio na telefonie z Androidem przez USB / Wi-Fi (ze źródeł)
-1. Na telefonie z Androidem wejdź w **Ustawienia → Informacje o telefonie** i kliknij 7 razy w **Numer kompilacji**, aby odblokować **Opcje programistyczne**.
-2. Wejdź w **Ustawienia → System → Opcje programistyczne** i włącz **Debugowanie USB** (lub **Debugowanie bezprzewodowe**).
-3. Podłącz telefon kablem USB do komputera i zaakceptuj komunikat *„Zezwól na debugowanie USB”* (sprawdź połączenie komendą `adb devices`).
-4. Wygeneruj projekt natywny Androida (jeśli folder `android/` jeszcze nie istnieje) i uruchom kompilację:
-   ```bash
-   npx expo prebuild --platform android
-   npx expo run:android --device
-   ```
-
-#### Opcja C: Lokalna kompilacja samodzielnego pliku instalacyjnego `.apk` (Release APK)
-Jeśli chcesz wygenerować gotowy plik `.apk` lokalnie na swoim komputerze:
-
+### Weryfikacja i testy
 ```bash
-# 1. Wygeneruj natywny katalog android/ (jednorazowo)
-npx expo prebuild --platform android
-
-# 2. Zbuduj zoptymalizowany pakiet Release APK
-cd android
-./gradlew assembleRelease
-
-# Gotowy plik APK znajdziesz w:
-# android/app/build/outputs/apk/release/app-release.apk
-```
-Następnie możesz zainstalować go na podłączonym telefonie komendą:
-```bash
-adb install -r android/app/build/outputs/apk/release/app-release.apk
+./node_modules/.bin/tsc --noEmit    # TypeScript check (mobile)
+npm test                            # Vitest unit tests (security, storage, cache)
+npx expo lint                       # ESLint + React Compiler check
+npx --yes expo-doctor               # Dependency & config health
+cd website && npm run build         # Website + BFF API build
 ```
 
-#### Opcja D: Budowanie `.apk` w chmurze przez EAS Build (bez Android Studio)
-Jeśli nie chcesz instalować lokalnie Android Studio ani SDK:
-```bash
-npx eas-cli@latest build --platform android --profile preview
-```
+### Budowanie na urządzeniu
+- **iOS**: `npx expo run:ios --device` (produkcja App Store: `./scripts/release-ios-appstore.sh`)
+- **Android**: `npx expo prebuild --platform android && npx expo run:android --device`
 
 ---
 
-## ⚡ Automatyczne budowanie APK i CI/CD (GitHub Actions)
+## ⚡ Automatyzacja CI/CD (GitHub Actions)
 
-Projekt posiada w pełni zautomatyzowany potok CI/CD w katalogu [`.github/workflows/`](./.github/workflows/):
-
-- **CI (`ci.yml`)**: Uruchamia się na każdym pushu oraz Pull Requeście do gałęzi `dev` i `main` (sprawdza TypeScript `npx tsc --noEmit`, konfigurację Expo oraz build strony `website/`).
-- **Release (`android-release.yml`)**:
-  - **Automatycznie na produkcji (`main`)**: Po scaleniu zmian na `main` (z nową wersją w `package.json`) lub wypchnięciu taga `v*` automatycznie generuje podpisany build `RiftDaily.apk` i publikuje nowe **GitHub Release**.
-  - **Ręcznie na żądanie**: W zakładce **Actions** na GitHubie przyciskiem **„Run workflow”** (`workflow_dispatch`).
-- **Jak działa build APK?**
-  1. Uruchamia czystą maszynę wirtualną `ubuntu-latest` z JDK 17 i Node.js 20.
-  2. Wykonuje `npx expo prebuild --platform android` i kompiluje `./gradlew assembleRelease`.
-  3. Publikuje **GitHub Release** z gotowym plikiem `RiftDaily.apk`.
-
-Dzięki temu użytkownicy mają 100% gwarancji, że instalowany plik APK pochodzi wprost z publicznego, zweryfikowanego kodu źródłowego.
+- **[`ci.yml`](./.github/workflows/ci.yml)**: uruchamia się na każdym pushu i PR do `main` / `dev` — weryfikuje `tsc --noEmit`, `expo lint`, testy jednostkowe **Vitest**, konfigurację Expo oraz build strony `website/`.
+- **[`android-release.yml`](./.github/workflows/android-release.yml)**: po wypchnięciu taga `v*.*.*` buduje podpisany `.aab` + `.apk` (Expo CNG + Upload Keystore z GitHub Secrets) i publikuje **GitHub Release** z automatycznym opisem z [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
-## 🌐 Strona internetowa (Landing Page: Vite + Vercel)
-
-W katalogu [`website/`](./website/) znajduje się dedykowana, ultralekka strona internetowa projektu zbudowana przy użyciu **Vite + React 19 + TypeScript + Tailwind CSS**.
-
-Strona zawiera:
-- Bezpośredni przycisk pobrania pliku `.apk` na Androida
-- Przewodnik instalacji dla systemu iOS i Android
-- Prezentację modułów aplikacji w estetyce Linear Bento UI
-- Sekcję FAQ i linki do wsparcia
-
-### 🚀 Wdrożenie strony na Vercel:
-1. W panelu [Vercel](https://vercel.com) zaimportuj repozytorium `matiqueue/rift-daily`.
-2. Ustaw **Root Directory** na `website`.
-3. Vercel automatycznie wykryje konfigurację Vite i wdroży stronę (np. pod adresem `riftdaily.vercel.app`).
-
----
-
----
-
-### 🍎 Uruchomienie i kompilacja na **iPhonie (iOS)**
-
-#### Opcja A: Szybkie uruchomienie deweloperskie
-```bash
-npx expo run:ios --device
-```
-
-#### Opcja B: Samodzielna wersja **Release** na fizycznego iPhone'a (działa bez komputera i bez Metro)
-```bash
-export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-xcodebuild -workspace ios/RiftDaily.xcworkspace \
-  -scheme RiftDaily \
-  -configuration Release \
-  -destination 'generic/platform=iOS' \
-  -derivedDataPath ios/build \
-  -allowProvisioningUpdates build
-```
-
----
-
-## 🏗️ Architektura projektu
+## 🏗️ Struktura repozytorium
 
 ```text
 rift-daily/
-├── .github/workflows/           # GitHub Actions CI/CD (automatyczne budowanie Release APK na Androida)
-├── assets/images/               # Ikona aplikacji Rift Daily (1024x1024) i grafiki splash
-├── docs/assets/                 # Animowany baner SVG oraz prawdziwe zrzuty ekranu z aplikacji
-├── website/                     # Oficjalna strona internetowa (Vite + React 19 + Tailwind CSS)
+├── .github/workflows/           # CI (TypeScript, ESLint, Vitest, Website) + Android Release (.aab/.apk)
+├── assets/                      # Ikony, screenshoty App Store (iPhone + iPad), banery, Play Store
+├── docs/                        # PROJECT_MEMORY.md, ARCHITECTURE.md, RELEASE_AND_STORES.md
+├── plugins/                     # Expo CNG config plugin (withAndroidReleaseSigning.js)
+├── scripts/                     # SemVer bump, App Store Connect API automation, iOS release script
 ├── src/
-│   ├── api/
-│   │   ├── installations.ts     # Katalog ponad 80 polskich uczelni (UKEN jako Top 1)
-│   │   ├── oauth1.ts            # Implementacja podpisów kryptograficznych HMAC-SHA1 OAuth 1.0a
-│   │   ├── types.ts             # Definicje typów TypeScript dla encji USOS API
-│   │   └── usosClient.ts        # Klient USOS API (kursy, oceny, wykładowcy, raty, zdjęcia HD)
-│   ├── app/
-│   │   ├── _layout.tsx          # Ekran ładowania + bramka bezpieczeństwa PIN / Face ID
-│   │   ├── login.tsx            # Wybór uczelni i logowanie OAuth 1.0a / PIN
-│   │   ├── (tabs)/              # Ekrany: Dziennik, Plan, Oceny, Kursy, Moduły, Ustawienia
-│   │   └── modal/               # Modale szczegółów przedmiotu, modułów USOS i diagnostyki API
-│   ├── components/
-│   │   ├── AppLoadingScreen.tsx # Animowany ekran startowy i synchronizacji
-│   │   ├── Avatar.tsx           # Portrety HD z estetycznymi sylwetkami zastępczymi
-│   │   ├── GlassCard.tsx        # Karty Bento ze sprężystymi animacjami Reanimated
-│   │   ├── GradeBadge.tsx       # Monospace'owe plakietki ocen (5.0, 4.5, ZAL)
-│   │   └── SecurityGateOverlay.tsx # Ekran blokady i konfiguracji PIN + Face ID / Biometria
-│   ├── services/
-│   │   └── notifications.ts     # Silnik powiadomień iOS/Android o zmianach lekcji, ocenach i ratach
-│   ├── store/
-│   │   └── useUsosStore.ts      # Magazyn stanu Zustand + bezpieczny zapis w Keychain / Keystore
-│   ├── theme/
-│   │   └── theme.ts             # System 2 motywów: Ciemny (#09090B) i Jasny (#F4F4F5)
-│   └── utils/
-│       └── timetableUtils.ts    # Wyznaczanie trwających i najbliższych zajęć z odliczaniem czasu
-├── LICENSE                      # Licencja Non-Commercial (100% Darmowe / Zakaz komercjalizacji)
-└── README.md                    # Dokumentacja projektu (iOS & Android)
+│   ├── api/                     # Katalog 50+ uczelni USOS, klient BFF, typy TypeScript
+│   ├── app/                     # Expo Router: (tabs)/ [Dziś, Plan, Dziennik, Więcej], login, modale
+│   ├── components/              # FloatingGlassTabBar, DateWheelCarousel, SyncStatusBanner, SecurityGate
+│   ├── services/                # Powiadomienia lokalne i odświeżanie w tle (expo-background-task)
+│   ├── store/                   # Zustand store + natychmiastowy cache (dataCache.ts)
+│   ├── theme/                   # Paleta Titanium / Obsidian / Paper (Dark + Light)
+│   └── utils/                   # secureStorage.ts (Keychain/Keystore), dataCache.ts, timetableUtils.ts
+└── website/                     # Wizytówka Vite + React 19 + Tailwind CSS + Vercel BFF (/api/usos/*)
 ```
 
 ---
 
-## 🤝 Współtworzenie (Contributing & Git Flow)
+## 📄 Dokumentacja i licencja
 
-Projekt ma otwarty kod źródłowy i jest tworzony przez studentów dla studentów! Przed rozpoczęciem pracy zapoznaj się z [CONTRIBUTING.md](./CONTRIBUTING.md), [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) oraz [SECURITY.md](./SECURITY.md).
-
-### Przepływ gałęzi (`dev` -> `main`)
-- **`dev`** to główna gałąź developerska (chroniona CI). Wszystkie nowe funkcje, poprawki i **Pull Requesty kierujemy do `dev`**.
-- **`main`** to chroniona gałąź produkcyjna (wymaga Code Review + zielonego CI). Scalenie `dev` -> `main` z podbitą wersją w `package.json` / `app.json` automatycznie buduje i publikuje nowe wydanie (`RiftDaily.apk`).
-
-### Jak dodać zmianę krok po kroku
-1. Zrób **Fork** lub utwórz gałąź z `dev` (np. `git checkout dev && git checkout -b feat/nowa-funkcja`).
-2. Wprowadź zmiany i sprawdź kompilację: `./node_modules/.bin/tsc --noEmit`.
-3. Zatwierdź zmiany (`git commit -m 'feat: dodano nową funkcję'`) i wypchnij gałąź.
-4. Otwórz **Pull Request do gałęzi `dev`**, powiąż go z odpowiednim Issue (`Closes #...`) i uzupełnij pola projektu ([Rift Daily Roadmap](https://github.com/users/matiqueue/projects/5)).
-5. Masz pytanie lub pomysł? Zajrzyj do **[GitHub Discussions](https://github.com/matiqueue/rift-daily/discussions)** lub utwórz zgłoszenie z gotowego szablonu w zakładce **Issues**.
-
----
-
-## 📄 Licencja (100% Darmowe -> Zakaz Komercjalizacji)
-
-Ten projekt jest udostępniany na licencji **Rift Daily Non-Commercial Open Source License** (pełną treść znajdziesz w pliku [LICENSE](./LICENSE)).
-
-- **100% Darmowe dla studentów**: Możesz dowolnie pobierać, uruchamiać, modyfikować i rozwijać aplikację w celach osobistych, akademickich i edukacyjnych.
-- **Bezwzględny zakaz spieniężania (No Monetization / Non-Commercial)**: Zabrania się sprzedaży aplikacji lub jej części, wprowadzania płatnych subskrypcji (paywalli), mikropłatności, reklam zarobkowych oraz wykorzystywania kodu w produktach komercyjnych. Aplikacja oraz wszelkie jej forki muszą pozostać **całkowicie darmowe**.
-
-<div align="center">
-  <sub>Stworzone z pasją dla studentów polskich uczelni • <b>Rift Daily // e-Dziennik USOS (iOS & Android)</b></sub>
-  <br />
-  <sub>Main Contributor: <a href="https://github.com/matiqueue">@matiqueue</a> • <a href="https://matiqueue-portfolio.vercel.app">☕ Buy me a coffee</a></sub>
-</div>
-
-
----
-
-## Dokumentacja, Bezpieczeństwo i Wydania
-
-- **Centralna pamięć projektu i ADR:** [`docs/PROJECT_MEMORY.md`](docs/PROJECT_MEMORY.md)
-- **Architektura, klucze SecureStore i backend BFF:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- **Runbook wydań (SemVer, App Store, Google Play, CI/CD):** [`docs/RELEASE_AND_STORES.md`](docs/RELEASE_AND_STORES.md)
-- **Paczka publikacyjna sklepów (PL/EN, Data Safety, IARC):** [`docs/playstore_connect_pack.md`](docs/playstore_connect_pack.md)
-- **Centralny hub instrukcji dla agentów AI:** [`AGENTS.md`](AGENTS.md) (`CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`)
-- **Historia zmian:** [`CHANGELOG.md`](CHANGELOG.md)
-- **Strony prawne i pomoc:** [Polityka prywatności (RODO)](https://rift-daily.vercel.app/privacy) · [Regulamin](https://rift-daily.vercel.app/terms) · [Pomoc i kontakt](https://rift-daily.vercel.app/support)
+- [Architektura i mapa kodu](./docs/ARCHITECTURE.md)
+- [Pamięć projektu i bezpieczeństwo](./docs/PROJECT_MEMORY.md)
+- [Wydania i publikacja w sklepach](./docs/RELEASE_AND_STORES.md)
+- [Historia zmian (CHANGELOG)](./CHANGELOG.md)
+- [Polityka prywatności](https://rift-daily.vercel.app/privacy) · [Regulamin](https://rift-daily.vercel.app/terms) · [Pomoc](https://rift-daily.vercel.app/support)
