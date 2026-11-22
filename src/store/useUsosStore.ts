@@ -43,6 +43,7 @@ import {
   loadCachedSnapshot,
   saveCachedSnapshot,
 } from '@/utils/dataCache';
+import { buildDemoUsosSnapshot } from '@/utils/demoData';
 import {
   secureClearKeys,
   secureDeleteItem,
@@ -64,6 +65,7 @@ export interface SimulatedGrade {
 interface UsosState {
   isHydrated: boolean;
   isAuthenticated: boolean;
+  isDemoMode: boolean;
   isSyncing: boolean;
   lastSyncedAt: string | null;
   lastSyncedTimestamp: number;
@@ -132,6 +134,7 @@ interface UsosState {
   loginWithOAuth: () => Promise<{ ok: boolean; error?: string; needsPin?: boolean }>;
   startPinOAuth: () => Promise<{ ok: boolean; error?: string }>;
   completePinOAuth: (pinCode: string) => Promise<{ ok: boolean; error?: string }>;
+  enterDemoMode: () => Promise<void>;
   syncFromLiveApi: (opts?: { force?: boolean }) => Promise<{ synced: boolean; waitSec?: number }>;
   changeTimetableWeek: (offsetDelta: number) => Promise<void>;
   logout: () => Promise<void>;
@@ -255,6 +258,7 @@ const ukenDefault = DEFAULT_USOS_INSTALLATIONS[0];
 export const useUsosStore = create<UsosState>((set, get) => ({
   isHydrated: false,
   isAuthenticated: false,
+  isDemoMode: false,
   isSyncing: false,
   lastSyncedAt: null,
   lastSyncedTimestamp: 0,
@@ -759,8 +763,31 @@ export const useUsosStore = create<UsosState>((set, get) => ({
     }
   },
 
+  enterDemoMode: async () => {
+    const demo = buildDemoUsosSnapshot();
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    set({
+      ...demo,
+      selectedInstallation: DEFAULT_USOS_INSTALLATIONS[0],
+      timetableWeekOffset: 0,
+      isAuthenticated: true,
+      isDemoMode: true,
+      isSyncing: false,
+      securityConfigured: true,
+      securityEnabled: false,
+      isLocked: false,
+      syncError: null,
+      lastSyncedAt: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+      lastSyncedTimestamp: Date.now(),
+    });
+  },
+
   syncFromLiveApi: async (opts) => {
     const state = get();
+    if (state.isDemoMode) {
+      return { synced: true };
+    }
     const { selectedInstallation, timetableWeekOffset, lastSyncedTimestamp } = state;
 
     // Single-flight guard: never overlap concurrent sync bursts
@@ -1028,6 +1055,9 @@ export const useUsosStore = create<UsosState>((set, get) => ({
     set({ timetableWeekOffset: nextOffset });
 
     const state = get();
+    if (state.isDemoMode) {
+      return;
+    }
     const weekMondayIso = getMondayForWeekOffset(nextOffset);
     // Avoid redundant requests when user scrolls across weeks already cached in memory
     if (loadedWeekMondays.has(weekMondayIso)) {
@@ -1080,6 +1110,7 @@ export const useUsosStore = create<UsosState>((set, get) => ({
     set({
       ...getEmptyLiveState(selectedInstallation),
       isAuthenticated: false,
+      isDemoMode: false,
       isLocked: false,
       sessionToken: '',
       pendingRequestSession: '',
@@ -1103,6 +1134,7 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       ...getEmptyLiveState(defaultInst),
       selectedInstallation: defaultInst,
       isAuthenticated: false,
+      isDemoMode: false,
       isLocked: false,
       securityConfigured: false,
       securityEnabled: false,

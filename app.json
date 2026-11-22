@@ -17,11 +17,11 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "Rift Daily używa Face ID do szybkiego odblokowywania dostępu do e-Dziennika USOS."
       },
-      "buildNumber": "4"
+      "buildNumber": "5"
     },
     "android": {
       "package": "pl.matique.riftdaily",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#09090B",
         "foregroundImage": "./assets/images/icon.png"
