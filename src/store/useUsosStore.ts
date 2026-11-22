@@ -39,6 +39,11 @@ import {
 } from '@/services/notifications';
 import { ThemeMode } from '@/theme/theme';
 import {
+  clearCachedSnapshot,
+  loadCachedSnapshot,
+  saveCachedSnapshot,
+} from '@/utils/dataCache';
+import {
   secureClearKeys,
   secureDeleteItem,
   secureGetItem,
@@ -355,8 +360,30 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         } catch {}
       }
 
+      // Hydrate persisted offline snapshot immediately so cold start renders data in <200ms
+      const cached = hasValidAuth ? await loadCachedSnapshot(foundInst.id) : null;
+
       set({
         ...getEmptyLiveState(foundInst),
+        ...(cached
+          ? {
+              user: cached.user,
+              timetable: cached.timetable,
+              upcomingTimetable: cached.upcomingTimetable,
+              grades: cached.grades,
+              courses: cached.courses,
+              exams: cached.exams,
+              payments: cached.payments,
+              bankAccount: cached.bankAccount,
+              studentCard: cached.studentCard,
+              surveys: cached.surveys,
+              staff: cached.staff,
+              buildings: cached.buildings,
+              thesis: cached.thesis,
+              lastSyncedAt: cached.lastSyncedAt,
+              lastSyncedTimestamp: cached.savedAt,
+            }
+          : {}),
         selectedInstallation: foundInst,
         sessionToken: effectiveSession,
         consumerKey: effectiveKey,
@@ -937,6 +964,12 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         return a.name.localeCompare(b.name, 'pl');
       });
 
+      const syncedAtLabel = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      const nextBankAccount = payRes.status === 'fulfilled' ? payRes.value.bankAccount : null;
+      const nextStudentCard = cardRes.status === 'fulfilled' ? cardRes.value : null;
+      const nextBuildings = bldRes.status === 'fulfilled' ? bldRes.value : [];
+      const nextThesis = thRes.status === 'fulfilled' ? thRes.value : null;
+
       set({
         user: liveUser,
         timetable: timetableActivities,
@@ -946,20 +979,40 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         grades: liveGrades,
         staff: sortedLiveStaff,
         payments: nextPayments,
-        bankAccount: payRes.status === 'fulfilled' ? payRes.value.bankAccount : null,
-        studentCard: cardRes.status === 'fulfilled' ? cardRes.value : null,
+        bankAccount: nextBankAccount,
+        studentCard: nextStudentCard,
         exams: nextExams,
         surveys: nextSurveys,
-        buildings: bldRes.status === 'fulfilled' ? bldRes.value : [],
-        thesis: thRes.status === 'fulfilled' ? thRes.value : null,
+        buildings: nextBuildings,
+        thesis: nextThesis,
         registrations: [],
         dorm: null,
         slips: [],
         notificationHistory: nextNotificationHistory,
         isSyncing: false,
-        lastSyncedAt: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+        lastSyncedAt: syncedAtLabel,
         lastSyncedTimestamp: Date.now(),
       });
+
+      // Persist snapshot for instant cold-start rendering on next launch
+      saveCachedSnapshot({
+        installationId: state.selectedInstallation.id,
+        lastSyncedAt: syncedAtLabel,
+        user: liveUser,
+        timetable: timetableActivities,
+        upcomingTimetable: upcomingActivities,
+        grades: liveGrades,
+        courses: liveCourses,
+        exams: nextExams,
+        payments: nextPayments,
+        bankAccount: nextBankAccount,
+        studentCard: nextStudentCard,
+        surveys: nextSurveys,
+        staff: sortedLiveStaff,
+        buildings: nextBuildings,
+        thesis: nextThesis,
+      }).catch(() => {});
+
       return { synced: true };
     } catch (err: any) {
       set({
@@ -1022,6 +1075,7 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       safeDeleteItem(STORAGE_KEYS.SESSION_TOKEN),
       safeDeleteItem(STORAGE_KEYS.ACCESS_TOKEN),
       safeDeleteItem(STORAGE_KEYS.ACCESS_SECRET),
+      clearCachedSnapshot(),
     ]);
     set({
       ...getEmptyLiveState(selectedInstallation),
@@ -1040,7 +1094,10 @@ export const useUsosStore = create<UsosState>((set, get) => ({
     const defaultInst = DEFAULT_USOS_INSTALLATIONS[0];
     loadedWeekMondays.clear();
     staffSearchCache.clear();
-    await secureClearKeys(Object.values(STORAGE_KEYS));
+    await Promise.all([
+      secureClearKeys(Object.values(STORAGE_KEYS)),
+      clearCachedSnapshot(),
+    ]);
     await safeSetItem(STORAGE_KEYS.BFF_MIGRATED, '1');
     set({
       ...getEmptyLiveState(defaultInst),

@@ -3,6 +3,17 @@
 Wszystkie istotne zmiany w aplikacji mobilnej **Rift Daily**, centralnym backendzie BFF oraz portalu WWW.
 Format zgodny z [Keep a Changelog](https://keepachangelog.com/pl/1.1.0/) oraz [Semantic Versioning](https://semver.org/).
 
+## [v3.1.2] - 2026-11-22
+
+### Funkcje i UX (Mobile)
+- **Natychmiastowy start z pamięci podręcznej (`src/utils/dataCache.ts`)**: lokalna migawka danych akademickich (`expo-file-system`, czyszczona przy wylogowaniu i usunięciu danych) renderuje plan, oceny i profil w <200 ms bez 5-sekundowego czekania na sieć.
+- **Dyskretna pigułka statusu synchronizacji (`src/components/SyncStatusBanner.tsx`)**: informuje na bieżąco *„Pobieram najnowsze dane...”* podczas odświeżania w tle i potwierdza *„Zaktualizowano dane”* po zakończeniu (lub *„Tryb offline · dane z pamięci”* przy braku sieci).
+
+### Strona WWW, App Store i CI/CD
+- **Przeprojektowana wizytówka WWW (`website/src/App.tsx`)**: nowa estetyka Obsidian / Titanium, interaktywna galeria 5 ekranów, wyszukiwarka kompatybilności 50+ uczelni USOS oraz sekcja architektury Zero-Secret.
+- **Nowe banery App Store Connect** (`product-page-header-3840x1646.png` i `search-results-3840x2560.png`): prezentacja 3 ekranów aplikacji (tryb ciemny + jasny) bez powielania ikony i nazwy aplikacji.
+- **Naprawiony CI (`tsconfig.json`, `.github/workflows/ci.yml`)**: wykluczono `website/` z mobilnego `tsc --noEmit`, dodano `npx expo lint` w GitHub Actions oraz zaktualizowano `README.md` o aktualne zrzuty ekranu.
+
 ## [v1.2.0] - 2026-11-22
 
 ### Bezpieczeństwo i Architektura
