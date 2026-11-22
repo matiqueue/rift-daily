@@ -36,6 +36,7 @@ export default function LoginScreen() {
   const accessToken = useUsosStore((s) => s.accessToken);
   const user = useUsosStore((s) => s.user);
   const loginWithOAuth = useUsosStore((s) => s.loginWithOAuth);
+  const enterDemoMode = useUsosStore((s) => s.enterDemoMode);
   const isSyncing = useUsosStore((s) => s.isSyncing);
   const setThemeMode = useUsosStore((s) => s.setThemeMode);
 
@@ -80,6 +81,14 @@ export default function LoginScreen() {
         { text: 'Zamknij', style: 'cancel' },
       ]);
     }
+  };
+
+  const handleEnterDemo = async () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+    await enterDemoMode();
+    router.replace('/(tabs)');
   };
 
   const toggleLightDark = () => {
@@ -206,6 +215,23 @@ export default function LoginScreen() {
                     </Text>
                   </>
                 )}
+              </Pressable>
+
+              <Pressable
+                onPress={handleEnterDemo}
+                disabled={isSyncing}
+                style={({ pressed }) => [
+                  styles.demoBtn,
+                  {
+                    backgroundColor: theme.bgSecondary,
+                    borderColor: theme.cardBorder,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}>
+                <Ionicons name="sparkles-outline" size={16} color={theme.text} />
+                <Text style={[styles.demoBtnText, { color: theme.text }]}>
+                  Podgląd demonstracyjny (Demo)
+                </Text>
               </Pressable>
 
               <Pressable
@@ -476,6 +502,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 2,
+  },
+  demoBtn: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  demoBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
   pinLinkText: {
     fontSize: 12,
