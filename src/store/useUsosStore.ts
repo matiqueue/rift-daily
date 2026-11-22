@@ -1,9 +1,6 @@
-import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
-
-const staffSearchCache = new Map<string, UsosStaffMember[]>();
 
 import {
   DEFAULT_USOS_INSTALLATIONS,
@@ -41,6 +38,16 @@ import {
   sendTestUsosNotification,
 } from '@/services/notifications';
 import { ThemeMode } from '@/theme/theme';
+import {
+  secureClearKeys,
+  secureDeleteItem,
+  secureGetItem,
+  secureSetItem,
+} from '@/utils/secureStorage';
+
+const staffSearchCache = new Map<string, UsosStaffMember[]>();
+const loadedWeekMondays = new Set<string>();
+export const SYNC_COOLDOWN_MS = 60_000; // 60s client-side anti-spam cooldown
 
 export interface SimulatedGrade {
   id: string;
@@ -54,6 +61,7 @@ interface UsosState {
   isAuthenticated: boolean;
   isSyncing: boolean;
   lastSyncedAt: string | null;
+  lastSyncedTimestamp: number;
   syncError: string | null;
   themeMode: ThemeMode;
 
@@ -68,6 +76,11 @@ interface UsosState {
 
   installations: UsosInstallation[];
   selectedInstallation: UsosInstallation;
+  /** Opaque AES-256-GCM encrypted session token issued by the central Vercel BFF */
+  sessionToken: string;
+  /** Temporary encrypted OAuth request session for PIN (OOB) flow */
+  pendingRequestSession: string;
+  /** Optional BYOK overrides (empty by default — server holds all keys) */
   consumerKey: string;
   consumerSecret: string;
   accessToken: string;
@@ -114,9 +127,10 @@ interface UsosState {
   loginWithOAuth: () => Promise<{ ok: boolean; error?: string; needsPin?: boolean }>;
   startPinOAuth: () => Promise<{ ok: boolean; error?: string }>;
   completePinOAuth: (pinCode: string) => Promise<{ ok: boolean; error?: string }>;
-  syncFromLiveApi: () => Promise<void>;
+  syncFromLiveApi: (opts?: { force?: boolean }) => Promise<{ synced: boolean; waitSec?: number }>;
   changeTimetableWeek: (offsetDelta: number) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAllLocalData: () => Promise<void>;
 
   toggleExamRegistration: (examId: string) => void;
   toggleCourseRegistration: (roundId: string, courseId: string, group?: string) => void;
@@ -128,6 +142,8 @@ interface UsosState {
 
 const STORAGE_KEYS = {
   INST_ID: 'indeks_plus_inst_id_v1',
+  SESSION_TOKEN: 'rift_daily_session_token_v2',
+  BFF_MIGRATED: 'rift_daily_bff_migrated_v2',
   CONSUMER_KEY: 'indeks_plus_consumer_key_v1',
   CONSUMER_SECRET: 'indeks_plus_consumer_secret_v1',
   ACCESS_TOKEN: 'indeks_plus_access_token_v1',
@@ -141,12 +157,41 @@ const STORAGE_KEYS = {
   NOTIF_HISTORY: 'rift_daily_notif_history_v1',
 };
 
+function createUsosClientFromState(state: {
+  selectedInstallation: UsosInstallation;
+  sessionToken: string;
+  consumerKey: string;
+  consumerSecret: string;
+  accessToken: string;
+  accessTokenSecret: string;
+}): UsosApiClient | null {
+  if (state.sessionToken) {
+    return UsosApiClient.fromBackendSession(
+      state.selectedInstallation.baseUrl,
+      state.sessionToken
+    );
+  }
+  if (
+    state.consumerKey &&
+    state.consumerSecret &&
+    state.accessToken &&
+    state.accessTokenSecret
+  ) {
+    return new UsosApiClient(state.selectedInstallation.baseUrl, {
+      consumerKey: state.consumerKey,
+      consumerSecret: state.consumerSecret,
+      token: state.accessToken,
+      tokenSecret: state.accessTokenSecret,
+    });
+  }
+  return null;
+}
+
 function getMondayForWeekOffset(offsetWeeks = 0): string {
   const now = new Date();
-  const day = now.getDay();
-  const diffToMonday = (day === 0 ? 1 : 1 - day) + offsetWeeks * 7;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday);
+  const day = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const diffToMonday = (day === 0 ? -6 : 1 - day) + offsetWeeks * 7;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
 }
@@ -196,44 +241,9 @@ function getEmptyLiveState(inst: UsosInstallation) {
   };
 }
 
-async function safeGetItem(key: string): Promise<string | null> {
-  if (Platform.OS === 'web') {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  }
-  try {
-    return await SecureStore.getItemAsync(key);
-  } catch {
-    return null;
-  }
-}
-
-async function safeSetItem(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    try {
-      localStorage.setItem(key, value);
-    } catch {}
-    return;
-  }
-  try {
-    await SecureStore.setItemAsync(key, value);
-  } catch {}
-}
-
-async function safeDeleteItem(key: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    try {
-      localStorage.removeItem(key);
-    } catch {}
-    return;
-  }
-  try {
-    await SecureStore.deleteItemAsync(key);
-  } catch {}
-}
+const safeGetItem = secureGetItem;
+const safeSetItem = secureSetItem;
+const safeDeleteItem = secureDeleteItem;
 
 const ukenDefault = DEFAULT_USOS_INSTALLATIONS[0];
 
@@ -242,6 +252,7 @@ export const useUsosStore = create<UsosState>((set, get) => ({
   isAuthenticated: false,
   isSyncing: false,
   lastSyncedAt: null,
+  lastSyncedTimestamp: 0,
   syncError: null,
   themeMode: 'dark',
 
@@ -256,8 +267,10 @@ export const useUsosStore = create<UsosState>((set, get) => ({
 
   installations: DEFAULT_USOS_INSTALLATIONS,
   selectedInstallation: ukenDefault,
-  consumerKey: ukenDefault.defaultConsumerKey || '',
-  consumerSecret: ukenDefault.defaultConsumerSecret || '',
+  sessionToken: '',
+  pendingRequestSession: '',
+  consumerKey: '',
+  consumerSecret: '',
   accessToken: '',
   accessTokenSecret: '',
 
@@ -271,6 +284,8 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       configureNotificationsHandler();
       const [
         instId,
+        savedSessionToken,
+        bffMigrated,
         cKey,
         cSecret,
         aToken,
@@ -284,6 +299,8 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         notifHistoryRaw,
       ] = await Promise.all([
         safeGetItem(STORAGE_KEYS.INST_ID),
+        safeGetItem(STORAGE_KEYS.SESSION_TOKEN),
+        safeGetItem(STORAGE_KEYS.BFF_MIGRATED),
         safeGetItem(STORAGE_KEYS.CONSUMER_KEY),
         safeGetItem(STORAGE_KEYS.CONSUMER_SECRET),
         safeGetItem(STORAGE_KEYS.ACCESS_TOKEN),
@@ -297,12 +314,31 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         safeGetItem(STORAGE_KEYS.NOTIF_HISTORY),
       ]);
 
+      // One-time clean migration to Zero-Secret BFF sessions: wipe legacy client-side tokens from Keychain
+      if (bffMigrated !== '1') {
+        await Promise.all([
+          safeDeleteItem(STORAGE_KEYS.SESSION_TOKEN),
+          safeDeleteItem(STORAGE_KEYS.CONSUMER_KEY),
+          safeDeleteItem(STORAGE_KEYS.CONSUMER_SECRET),
+          safeDeleteItem(STORAGE_KEYS.ACCESS_TOKEN),
+          safeDeleteItem(STORAGE_KEYS.ACCESS_SECRET),
+          safeSetItem(STORAGE_KEYS.BFF_MIGRATED, '1'),
+        ]);
+      }
+
       const foundInst =
         DEFAULT_USOS_INSTALLATIONS.find((i) => i.id === instId) || DEFAULT_USOS_INSTALLATIONS[0];
 
-      const effectiveKey = cKey || foundInst.defaultConsumerKey || '';
-      const effectiveSecret = cSecret || foundInst.defaultConsumerSecret || '';
-      const hasValidOAuth = Boolean(aToken && aSecret && effectiveKey && effectiveSecret);
+      const effectiveSession = bffMigrated === '1' ? savedSessionToken || '' : '';
+      const effectiveKey = bffMigrated === '1' ? cKey || '' : '';
+      const effectiveSecret = bffMigrated === '1' ? cSecret || '' : '';
+      const effectiveAToken = bffMigrated === '1' ? aToken || '' : '';
+      const effectiveASecret = bffMigrated === '1' ? aSecret || '' : '';
+      const hasValidBackendSession = Boolean(effectiveSession);
+      const hasValidByokOAuth = Boolean(
+        effectiveAToken && effectiveASecret && effectiveKey && effectiveSecret
+      );
+      const hasValidAuth = hasValidBackendSession || hasValidByokOAuth;
       const isSecEnabled = secEn === '1' && Boolean(secPin);
 
       let parsedPrefs: NotificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES;
@@ -322,29 +358,30 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       set({
         ...getEmptyLiveState(foundInst),
         selectedInstallation: foundInst,
+        sessionToken: effectiveSession,
         consumerKey: effectiveKey,
         consumerSecret: effectiveSecret,
-        accessToken: aToken || '',
-        accessTokenSecret: aSecret || '',
+        accessToken: effectiveAToken,
+        accessTokenSecret: effectiveASecret,
         themeMode: (savedTheme as ThemeMode) || 'dark',
         securityConfigured: secConf === '1',
         securityEnabled: isSecEnabled,
         securityPin: secPin || '',
         biometricsEnabled: secBio !== '0',
-        isLocked: hasValidOAuth && isSecEnabled,
+        isLocked: hasValidAuth && isSecEnabled,
         notificationPrefs: parsedPrefs,
         notificationHistory: parsedHistory,
-        isAuthenticated: hasValidOAuth,
+        isAuthenticated: hasValidAuth,
         isHydrated: true,
       });
 
       get().loadInstallations();
 
-      if (hasValidOAuth) {
+      if (hasValidAuth) {
         if (parsedPrefs.enabled) {
           requestNotificationPermissions().catch(() => {});
         }
-        get().syncFromLiveApi();
+        get().syncFromLiveApi({ force: true });
       }
     } catch {
       set({ isHydrated: true });
@@ -360,21 +397,32 @@ export const useUsosStore = create<UsosState>((set, get) => ({
 
   setSelectedInstallation: async (inst) => {
     const currentId = get().selectedInstallation.id;
-    const nextKey = inst.defaultConsumerKey || '';
-    const nextSecret = inst.defaultConsumerSecret || '';
     const isSameInst = currentId === inst.id;
 
     set({
       selectedInstallation: inst,
-      consumerKey: nextKey,
-      consumerSecret: nextSecret,
+      pendingRequestSession: '',
       pendingRequestToken: '',
       pendingRequestSecret: '',
-      ...(isSameInst ? {} : { accessToken: '', accessTokenSecret: '', isAuthenticated: false }),
+      ...(isSameInst
+        ? {}
+        : {
+            sessionToken: '',
+            consumerKey: '',
+            consumerSecret: '',
+            accessToken: '',
+            accessTokenSecret: '',
+            isAuthenticated: false,
+          }),
     });
     await safeSetItem(STORAGE_KEYS.INST_ID, inst.id);
-    await safeSetItem(STORAGE_KEYS.CONSUMER_KEY, nextKey);
-    await safeSetItem(STORAGE_KEYS.CONSUMER_SECRET, nextSecret);
+    if (!isSameInst) {
+      await Promise.all([
+        safeDeleteItem(STORAGE_KEYS.SESSION_TOKEN),
+        safeDeleteItem(STORAGE_KEYS.CONSUMER_KEY),
+        safeDeleteItem(STORAGE_KEYS.CONSUMER_SECRET),
+      ]);
+    }
   },
 
   setThemeMode: async (mode) => {
@@ -455,50 +503,72 @@ export const useUsosStore = create<UsosState>((set, get) => ({
   },
 
   loginWithOAuth: async () => {
-    let { selectedInstallation, consumerKey, consumerSecret } = get();
+    const { selectedInstallation, consumerKey, consumerSecret } = get();
     set({ isSyncing: true, syncError: null });
-
-    if (!consumerKey || !consumerSecret) {
-      if (
-        selectedInstallation.defaultConsumerKey &&
-        selectedInstallation.defaultConsumerSecret
-      ) {
-        consumerKey = selectedInstallation.defaultConsumerKey;
-        consumerSecret = selectedInstallation.defaultConsumerSecret;
-      } else {
-        const provisioned = await UsosApiClient.autoProvisionConsumerKey(
-          selectedInstallation.baseUrl
-        );
-        if (provisioned) {
-          consumerKey = provisioned.consumerKey;
-          consumerSecret = provisioned.consumerSecret;
-        }
-      }
-
-      if (consumerKey && consumerSecret) {
-        await get().saveOAuthConsumerCredentials(consumerKey, consumerSecret);
-      } else {
-        set({ isSyncing: false });
-        return {
-          ok: false,
-          error:
-            'Ta uczelnia wymaga ręcznego wygenerowania klucza OAuth 1.0a na stronie USOS API.',
-        };
-      }
-    }
+    const callbackUrl = 'riftdaily://oauth-callback';
 
     try {
-      const callbackUrl = 'riftdaily://oauth-callback';
-      const client = new UsosApiClient(selectedInstallation.baseUrl, {
-        consumerKey,
-        consumerSecret,
+      // Optional BYOK direct mode only if the user explicitly configured custom keys
+      if (consumerKey && consumerSecret) {
+        const client = new UsosApiClient(selectedInstallation.baseUrl, {
+          consumerKey,
+          consumerSecret,
+        });
+        const reqToken = await client.getRequestToken(callbackUrl);
+        const authResult = await WebBrowser.openAuthSessionAsync(
+          reqToken.authorizeUrl,
+          callbackUrl
+        );
+
+        if (authResult.type !== 'success' || !authResult.url) {
+          set({ isSyncing: false });
+          return {
+            ok: false,
+            error: 'Logowanie zostało przerwane przed powrotem do aplikacji.',
+          };
+        }
+
+        const queryPart = authResult.url.split('?')[1] || '';
+        const params = parseQueryString(queryPart);
+        const verifier = params.oauth_verifier;
+        if (!verifier) {
+          set({ isSyncing: false });
+          return {
+            ok: false,
+            error: 'Brak kodu autoryzacyjnego (oauth_verifier) z serwera USOS.',
+          };
+        }
+
+        const access = await client.getAccessToken(
+          reqToken.oauthToken,
+          reqToken.oauthTokenSecret,
+          verifier
+        );
+
+        await safeSetItem(STORAGE_KEYS.ACCESS_TOKEN, access.accessToken);
+        await safeSetItem(STORAGE_KEYS.ACCESS_SECRET, access.accessTokenSecret);
+        await safeDeleteItem(STORAGE_KEYS.SESSION_TOKEN);
+
+        set({
+          ...getEmptyLiveState(selectedInstallation),
+          sessionToken: '',
+          accessToken: access.accessToken,
+          accessTokenSecret: access.accessTokenSecret,
+          isAuthenticated: true,
+        });
+
+        await get().syncFromLiveApi();
+        return { ok: true };
+      }
+
+      // Default Zero-Secret Central Backend (Vercel BFF) OAuth 1.0a flow
+      const req = await UsosApiClient.requestTokenViaBackend({
+        installationId: selectedInstallation.id,
+        baseUrl: selectedInstallation.baseUrl,
+        callbackUrl,
       });
 
-      const reqToken = await client.getRequestToken(callbackUrl);
-      const authResult = await WebBrowser.openAuthSessionAsync(
-        reqToken.authorizeUrl,
-        callbackUrl
-      );
+      const authResult = await WebBrowser.openAuthSessionAsync(req.authorizeUrl, callbackUrl);
 
       if (authResult.type !== 'success' || !authResult.url) {
         set({ isSyncing: false });
@@ -519,23 +589,26 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         };
       }
 
-      const access = await client.getAccessToken(
-        reqToken.oauthToken,
-        reqToken.oauthTokenSecret,
-        verifier
-      );
+      const exchanged = await UsosApiClient.exchangeAccessTokenViaBackend({
+        requestTokenSession: req.requestTokenSession,
+        oauthVerifier: verifier,
+      });
 
-      await safeSetItem(STORAGE_KEYS.ACCESS_TOKEN, access.accessToken);
-      await safeSetItem(STORAGE_KEYS.ACCESS_SECRET, access.accessTokenSecret);
+      await safeSetItem(STORAGE_KEYS.SESSION_TOKEN, exchanged.sessionToken);
+      await Promise.all([
+        safeDeleteItem(STORAGE_KEYS.ACCESS_TOKEN),
+        safeDeleteItem(STORAGE_KEYS.ACCESS_SECRET),
+      ]);
 
       set({
         ...getEmptyLiveState(selectedInstallation),
-        accessToken: access.accessToken,
-        accessTokenSecret: access.accessTokenSecret,
+        sessionToken: exchanged.sessionToken,
+        accessToken: '',
+        accessTokenSecret: '',
         isAuthenticated: true,
       });
 
-      await get().syncFromLiveApi();
+      await get().syncFromLiveApi({ force: true });
       return { ok: true };
     } catch (err: any) {
       const msg = err?.message || 'Błąd komunikacji z serwerem OAuth 1.0a USOS API.';
@@ -545,28 +618,37 @@ export const useUsosStore = create<UsosState>((set, get) => ({
   },
 
   startPinOAuth: async () => {
-    let { selectedInstallation, consumerKey, consumerSecret } = get();
-    if (!consumerKey || !consumerSecret) {
-      consumerKey = selectedInstallation.defaultConsumerKey || '';
-      consumerSecret = selectedInstallation.defaultConsumerSecret || '';
-    }
-    if (!consumerKey || !consumerSecret) {
-      return { ok: false, error: 'Brak klucza Consumer Key dla tej uczelni.' };
-    }
-
+    const { selectedInstallation, consumerKey, consumerSecret } = get();
     set({ isSyncing: true, syncError: null });
     try {
-      const client = new UsosApiClient(selectedInstallation.baseUrl, {
-        consumerKey,
-        consumerSecret,
+      if (consumerKey && consumerSecret) {
+        const client = new UsosApiClient(selectedInstallation.baseUrl, {
+          consumerKey,
+          consumerSecret,
+        });
+        const reqToken = await client.getRequestToken('oob');
+        set({
+          pendingRequestToken: reqToken.oauthToken,
+          pendingRequestSecret: reqToken.oauthTokenSecret,
+          pendingRequestSession: '',
+          isSyncing: false,
+        });
+        await WebBrowser.openBrowserAsync(reqToken.authorizeUrl);
+        return { ok: true };
+      }
+
+      const req = await UsosApiClient.requestTokenViaBackend({
+        installationId: selectedInstallation.id,
+        baseUrl: selectedInstallation.baseUrl,
+        callbackUrl: 'oob',
       });
-      const reqToken = await client.getRequestToken('oob');
       set({
-        pendingRequestToken: reqToken.oauthToken,
-        pendingRequestSecret: reqToken.oauthTokenSecret,
+        pendingRequestSession: req.requestTokenSession,
+        pendingRequestToken: '',
+        pendingRequestSecret: '',
         isSyncing: false,
       });
-      await WebBrowser.openBrowserAsync(reqToken.authorizeUrl);
+      await WebBrowser.openBrowserAsync(req.authorizeUrl);
       return { ok: true };
     } catch (err: any) {
       set({ isSyncing: false });
@@ -579,15 +661,45 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       selectedInstallation,
       consumerKey,
       consumerSecret,
+      pendingRequestSession,
       pendingRequestToken,
       pendingRequestSecret,
     } = get();
-    if (!pendingRequestToken || !pendingRequestSecret || !pinCode.trim()) {
+
+    const trimmedPin = pinCode.trim();
+    if (!trimmedPin || (!pendingRequestSession && (!pendingRequestToken || !pendingRequestSecret))) {
       return { ok: false, error: 'Wpisz kod PIN wyświetlony na stronie USOSweb.' };
     }
 
     set({ isSyncing: true, syncError: null });
     try {
+      if (pendingRequestSession) {
+        const exchanged = await UsosApiClient.exchangeAccessTokenViaBackend({
+          requestTokenSession: pendingRequestSession,
+          oauthVerifier: trimmedPin,
+        });
+
+        await safeSetItem(STORAGE_KEYS.SESSION_TOKEN, exchanged.sessionToken);
+        await Promise.all([
+          safeDeleteItem(STORAGE_KEYS.ACCESS_TOKEN),
+          safeDeleteItem(STORAGE_KEYS.ACCESS_SECRET),
+        ]);
+
+        set({
+          ...getEmptyLiveState(selectedInstallation),
+          sessionToken: exchanged.sessionToken,
+          accessToken: '',
+          accessTokenSecret: '',
+          pendingRequestSession: '',
+          pendingRequestToken: '',
+          pendingRequestSecret: '',
+          isAuthenticated: true,
+        });
+
+        await get().syncFromLiveApi();
+        return { ok: true };
+      }
+
       const client = new UsosApiClient(selectedInstallation.baseUrl, {
         consumerKey,
         consumerSecret,
@@ -595,7 +707,7 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       const access = await client.getAccessToken(
         pendingRequestToken,
         pendingRequestSecret,
-        pinCode.trim()
+        trimmedPin
       );
 
       await safeSetItem(STORAGE_KEYS.ACCESS_TOKEN, access.accessToken);
@@ -603,8 +715,10 @@ export const useUsosStore = create<UsosState>((set, get) => ({
 
       set({
         ...getEmptyLiveState(selectedInstallation),
+        sessionToken: '',
         accessToken: access.accessToken,
         accessTokenSecret: access.accessTokenSecret,
+        pendingRequestSession: '',
         pendingRequestToken: '',
         pendingRequestSecret: '',
         isAuthenticated: true,
@@ -618,31 +732,34 @@ export const useUsosStore = create<UsosState>((set, get) => ({
     }
   },
 
-  syncFromLiveApi: async () => {
-    const {
-      selectedInstallation,
-      consumerKey,
-      consumerSecret,
-      accessToken,
-      accessTokenSecret,
-      timetableWeekOffset,
-    } = get();
+  syncFromLiveApi: async (opts) => {
+    const state = get();
+    const { selectedInstallation, timetableWeekOffset, lastSyncedTimestamp } = state;
 
-    if (!consumerKey || !accessToken) {
+    // Single-flight guard: never overlap concurrent sync bursts
+    if (state.isSyncing && !opts?.force) {
+      return { synced: false, waitSec: 5 };
+    }
+
+    // 60-second anti-spam cooldown (bypassed only on initial login / cold start)
+    const elapsed = Date.now() - lastSyncedTimestamp;
+    if (!opts?.force && lastSyncedTimestamp > 0 && elapsed < SYNC_COOLDOWN_MS) {
+      return {
+        synced: false,
+        waitSec: Math.max(1, Math.ceil((SYNC_COOLDOWN_MS - elapsed) / 1000)),
+      };
+    }
+
+    const client = createUsosClientFromState(state);
+
+    if (!client) {
       set({ isSyncing: false });
-      return;
+      return { synced: false };
     }
 
     set({ isSyncing: true, syncError: null });
 
     try {
-      const client = new UsosApiClient(selectedInstallation.baseUrl, {
-        consumerKey,
-        consumerSecret,
-        token: accessToken,
-        tokenSecret: accessTokenSecret,
-      });
-
       const weekMondayIso = getMondayForWeekOffset(timetableWeekOffset);
       const emptyBase = getEmptyLiveState(selectedInstallation);
 
@@ -711,6 +828,9 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         }
 
         upcomingActivities = [...w0Res.activities, ...w1Activities, ...w2Activities];
+        loadedWeekMondays.add(w0Monday);
+        loadedWeekMondays.add(w1Monday);
+        loadedWeekMondays.add(w2Monday);
 
         if (effectiveWeekOffset === 0) {
           if (hasRemainingClass(w0Res.activities)) {
@@ -838,12 +958,15 @@ export const useUsosStore = create<UsosState>((set, get) => ({
         notificationHistory: nextNotificationHistory,
         isSyncing: false,
         lastSyncedAt: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+        lastSyncedTimestamp: Date.now(),
       });
+      return { synced: true };
     } catch (err: any) {
       set({
         isSyncing: false,
         syncError: err?.message || 'Błąd synchronizacji z USOS API',
       });
+      return { synced: false };
     }
   },
 
@@ -851,30 +974,33 @@ export const useUsosStore = create<UsosState>((set, get) => ({
     const nextOffset = offsetDelta === 0 ? 0 : get().timetableWeekOffset + offsetDelta;
     set({ timetableWeekOffset: nextOffset });
 
-    const {
-      selectedInstallation,
-      consumerKey,
-      consumerSecret,
-      accessToken,
-      accessTokenSecret,
-      staff,
-    } = get();
+    const state = get();
+    const weekMondayIso = getMondayForWeekOffset(nextOffset);
+    // Avoid redundant requests when user scrolls across weeks already cached in memory
+    if (loadedWeekMondays.has(weekMondayIso)) {
+      return;
+    }
 
-    if (consumerKey && accessToken) {
+    const client = createUsosClientFromState(state);
+
+    if (client) {
       set({ isSyncing: true });
       try {
-        const client = new UsosApiClient(selectedInstallation.baseUrl, {
-          consumerKey,
-          consumerSecret,
-          token: accessToken,
-          tokenSecret: accessTokenSecret,
-        });
         const knownMap: Record<string, UsosStaffMember> = {};
-        for (const s of staff) knownMap[s.id] = s;
-        const weekMondayIso = getMondayForWeekOffset(nextOffset);
+        for (const s of state.staff) knownMap[s.id] = s;
         const tt = await client.fetchTimetable(weekMondayIso, 7, knownMap);
+        loadedWeekMondays.add(weekMondayIso);
+        const existingUpcoming = get().upcomingTimetable;
+        const mergedMap = new Map<string, UsosTimetableActivity>();
+        for (const a of existingUpcoming) {
+          mergedMap.set(`${a.date}|${a.start_time}|${a.course_id}|${a.id}`, a);
+        }
+        for (const a of tt.activities) {
+          mergedMap.set(`${a.date}|${a.start_time}|${a.course_id}|${a.id}`, a);
+        }
         set({
           timetable: tt.activities,
+          upcomingTimetable: Array.from(mergedMap.values()),
           staff: Object.values(tt.lecturersMap).sort((a, b) => {
             const photoDiff = Number(Boolean(b.photo_url)) - Number(Boolean(a.photo_url));
             if (photoDiff !== 0) return photoDiff;
@@ -890,7 +1016,10 @@ export const useUsosStore = create<UsosState>((set, get) => ({
 
   logout: async () => {
     const { selectedInstallation } = get();
+    loadedWeekMondays.clear();
+    staffSearchCache.clear();
     await Promise.all([
+      safeDeleteItem(STORAGE_KEYS.SESSION_TOKEN),
       safeDeleteItem(STORAGE_KEYS.ACCESS_TOKEN),
       safeDeleteItem(STORAGE_KEYS.ACCESS_SECRET),
     ]);
@@ -898,10 +1027,43 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       ...getEmptyLiveState(selectedInstallation),
       isAuthenticated: false,
       isLocked: false,
+      sessionToken: '',
+      pendingRequestSession: '',
       accessToken: '',
       accessTokenSecret: '',
       pendingRequestToken: '',
       pendingRequestSecret: '',
+    });
+  },
+
+  deleteAllLocalData: async () => {
+    const defaultInst = DEFAULT_USOS_INSTALLATIONS[0];
+    loadedWeekMondays.clear();
+    staffSearchCache.clear();
+    await secureClearKeys(Object.values(STORAGE_KEYS));
+    await safeSetItem(STORAGE_KEYS.BFF_MIGRATED, '1');
+    set({
+      ...getEmptyLiveState(defaultInst),
+      selectedInstallation: defaultInst,
+      isAuthenticated: false,
+      isLocked: false,
+      securityConfigured: false,
+      securityEnabled: false,
+      securityPin: '',
+      biometricsEnabled: true,
+      notificationPrefs: DEFAULT_NOTIFICATION_PREFERENCES,
+      notificationHistory: [],
+      sessionToken: '',
+      pendingRequestSession: '',
+      consumerKey: '',
+      consumerSecret: '',
+      accessToken: '',
+      accessTokenSecret: '',
+      pendingRequestToken: '',
+      pendingRequestSecret: '',
+      lastSyncedAt: null,
+      lastSyncedTimestamp: 0,
+      syncError: null,
     });
   },
 
@@ -993,14 +1155,12 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       )
     );
 
-    const { selectedInstallation, consumerKey, consumerSecret, accessToken, accessTokenSecret } =
-      get();
-
-    const effectiveKey = consumerKey || selectedInstallation.defaultConsumerKey || '';
-    const effectiveSecret = consumerSecret || selectedInstallation.defaultConsumerSecret || '';
+    const state = get();
+    const { selectedInstallation } = state;
+    const client = createUsosClientFromState(state);
     const cacheKey = `${selectedInstallation.id}:${q}`;
 
-    if (effectiveKey && q.length >= 2) {
+    if (client && q.length >= 2) {
       if (staffSearchCache.has(cacheKey)) {
         const cached = staffSearchCache.get(cacheKey)!;
         const seen = new Set(localFiltered.map((s) => s.id));
@@ -1008,12 +1168,6 @@ export const useUsosStore = create<UsosState>((set, get) => ({
       }
 
       try {
-        const client = new UsosApiClient(selectedInstallation.baseUrl, {
-          consumerKey: effectiveKey,
-          consumerSecret: effectiveSecret,
-          token: accessToken || undefined,
-          tokenSecret: accessTokenSecret || undefined,
-        });
         const remote = await client.searchStaff(query);
         staffSearchCache.set(cacheKey, remote);
         if (remote.length > 0) {

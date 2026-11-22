@@ -1,21 +1,15 @@
-name: Build & Release Android APK
+name: Android Production Release (.aab & .apk)
 
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Wersja wydania (np. v1.0.0)'
+        description: 'Release tag (e.g. v1.2.0)'
         required: true
-        default: 'v1.0.0'
-      release_title:
-        description: 'Tytuł wydania'
-        required: false
-        default: 'Rift Daily v1.0.0 (Android APK)'
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+        default: 'v1.2.0'
 
 permissions:
   contents: write
@@ -25,138 +19,127 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check-release:
-    name: Check if Release Needed
-    runs-on: ubuntu-latest
-    outputs:
-      should_build: ${{ steps.check.outputs.should_build }}
-      tag: ${{ steps.check.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag_name }}"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "should_build=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            TAG="${{ github.ref_name }}"
-          else
-            APP_VER=$(node -p "require('./package.json').version")
-            TAG="v${APP_VER}"
-          fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "Release ${TAG} już istnieje — pomijam zbędny build APK."
-            echo "should_build=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_build=true" >> "$GITHUB_OUTPUT"
-          fi
-
   build-android:
-    name: Build Android APK
-    needs: check-release
-    if: needs.check-release.outputs.should_build == 'true'
+    name: Build Signed AAB & APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Klonowanie repozytorium
-        uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: ☕ Konfiguracja JDK 17
-        uses: actions/setup-java@v6
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 🟢 Konfiguracja Node.js 20
-        uses: actions/setup-node@v7
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
-      - name: 📦 Instalacja zależności npm
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Install dependencies
         run: npm ci
 
-      - name: ⚙️ Przygotowanie pliku środowiskowego (.env.local)
+      - name: Prepare public env config
         run: |
           if [ ! -f .env.local ]; then
             cp .env.example .env.local
           fi
 
-      - name: 📱 Generowanie natywnego projektu Android (Expo Prebuild)
+      - name: Decode Android Upload Keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/riftdaily-upload.p12"
+            echo "ANDROID_KEYSTORE_PATH=${RUNNER_TEMP}/riftdaily-upload.p12" >> "$GITHUB_ENV"
+          fi
+
+      - name: Generate Android project (Expo Prebuild CNG)
         run: npx expo prebuild --platform android --clean
 
-      - name: 🔑 Uprawnienia dla Gradle wrapper
-        run: chmod +x android/gradlew
-
-      - name: 🔨 Budowanie pliku Release APK
-        run: cd android && ./gradlew assembleRelease --no-daemon
-
-      - name: 🗂️ Przygotowanie artefaktów wydania
-        id: prep
+      - name: Build signed Release AAB & APK
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew bundleRelease assembleRelease --parallel --no-daemon
+
+      - name: Prepare release artifacts & changelog notes
+        id: prep
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
             TAG="${{ github.ref_name }}"
-          elif [ -n "${{ github.event.inputs.tag_name }}" ]; then
-            TAG="${{ github.event.inputs.tag_name }}"
           else
-            APP_VER=$(node -p "require('./package.json').version")
-            TAG="v${APP_VER}"
+            TAG="${{ github.event.inputs.tag_name }}"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          if gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-          mkdir -p build-artifacts
-          cp android/app/build/outputs/apk/release/app-release.apk build-artifacts/RiftDaily.apk
-          cp android/app/build/outputs/apk/release/app-release.apk build-artifacts/RiftDaily-${TAG}.apk
-          ls -la build-artifacts
 
-      - name: 📤 Zapisanie artefaktu APK w Actions
+          mkdir -p build-artifacts
+          cp android/app/build/outputs/bundle/release/app-release.aab "build-artifacts/RiftDaily-${TAG}.aab"
+          cp android/app/build/outputs/apk/release/app-release.apk "build-artifacts/RiftDaily-${TAG}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "build-artifacts/RiftDaily.apk"
+
+          # Extract section for this tag from CHANGELOG.md (fallback to latest section)
+          node -e '
+            const fs = require("fs");
+            const tag = process.argv[1];
+            const md = fs.readFileSync("CHANGELOG.md", "utf8");
+            const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const re = new RegExp(`## \\[${escaped}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## \\[|$)`);
+            const m = md.match(re) || md.match(/## \[[^\]]+\][^\n]*\n([\s\S]*?)(?=\n## \[|$)/);
+            const notes = m ? m[1].trim() : `Wydanie ${tag} aplikacji Rift Daily.`;
+            fs.writeFileSync("build-artifacts/release-notes.md", notes + "\n");
+          ' "${TAG}"
+
+      - name: Check Google Play Service Account availability
+        id: play_check
+        env:
+          PLAY_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "${PLAY_KEY}" ]; then
+            echo "has_play_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_play_key=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload AAB & APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: RiftDaily-Android-APK
-          path: build-artifacts/RiftDaily.apk
+          name: RiftDaily-Android-${{ steps.prep.outputs.tag }}
+          path: |
+            build-artifacts/RiftDaily-*.aab
+            build-artifacts/RiftDaily-*.apk
 
-      - name: 🚀 Publikacja w GitHub Releases
-        if: steps.prep.outputs.exists == 'false' || github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v3
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.prep.outputs.tag }}
-          name: ${{ github.event.inputs.release_title || steps.prep.outputs.tag }}
-          body: |
-            ### 📱 Rift Daily — Oficjalne Wydanie na Androida (.APK)
-
-            Pobierz gotowy plik instalacyjny **Rift Daily** na swój telefon z systemem Android:
-            - 🚀 **[Pobierz RiftDaily.apk](https://github.com/matiqueue/rift-daily/releases/download/${{ steps.prep.outputs.tag }}/RiftDaily.apk)**
-            - 📦 Plik z wersją: `RiftDaily-${{ steps.prep.outputs.tag }}.apk`
-
-            ---
-
-            #### 💡 Jak zainstalować na telefonie z Androidem:
-            1. Pobierz plik `RiftDaily.apk` bezpośrednio na swój telefon z linku powyżej.
-            2. Po zakończeniu pobierania kliknij powiadomienie lub otwórz plik z folderu **Pobrane (Downloads)**.
-            3. Jeśli system Android zapyta o zgodę na instalację z tego źródła (przeglądarki), wybierz **Ustawienia** i włącz **Zezwalaj z tego źródła**.
-            4. Kliknij **Zainstaluj** i ciesz się nowoczesnym e-Dziennikiem USOS bez żadnych reklam i opłat!
-
-            ---
-
-            *Kompilacja wygenerowana w 100% z otwartego kodu źródłowego na maszynie GitHub Actions.*
+          name: Rift Daily ${{ steps.prep.outputs.tag }}
+          body_path: build-artifacts/release-notes.md
           draft: false
           prerelease: false
           files: |
-            build-artifacts/RiftDaily.apk
+            build-artifacts/RiftDaily-*.aab
             build-artifacts/RiftDaily-*.apk
+            build-artifacts/RiftDaily.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload AAB to Google Play (Internal Track)
+        if: steps.play_check.outputs.has_play_key == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: pl.matique.riftdaily
+          releaseFiles: build-artifacts/RiftDaily-*.aab
+          track: internal
+          status: completed

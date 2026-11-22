@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   FadeIn,
-  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -14,7 +13,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
-import { GlassCard } from '@/components/GlassCard';
+import { GlassSurface } from '@/components/GlassSurface';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
 import { MONO_FONT } from '@/theme/theme';
@@ -46,12 +45,14 @@ export function SecurityGateOverlay({ mode }: SecurityGateOverlayProps) {
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     }
-    shakeX.value = withSequence(
-      withTiming(-12, { duration: 55 }),
-      withTiming(12, { duration: 55 }),
-      withTiming(-8, { duration: 55 }),
-      withTiming(8, { duration: 55 }),
-      withTiming(0, { duration: 55 })
+    shakeX.set(
+      withSequence(
+        withTiming(-12, { duration: 55 }),
+        withTiming(12, { duration: 55 }),
+        withTiming(-8, { duration: 55 }),
+        withTiming(8, { duration: 55 }),
+        withTiming(0, { duration: 55 })
+      )
     );
   }, [shakeX]);
 
@@ -214,32 +215,32 @@ export function SecurityGateOverlay({ mode }: SecurityGateOverlayProps) {
           )}
 
           {mode === 'setup' && hasBioHardware && (
-            <GlassCard
-              padding={12}
+            <GlassSurface
+              radius={14}
+              interactive
               style={styles.bioToggleCard}
+              contentStyle={styles.bioToggleRow}
               onPress={() => setUseBio((v) => !v)}>
-              <View style={styles.bioToggleRow}>
-                <Ionicons name="scan-outline" size={20} color={theme.accent} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.bioTitle, { color: theme.text }]}>
-                    Odblokowywanie przez Face ID / Touch ID
-                  </Text>
-                  <Text style={[styles.bioSub, { color: theme.textSecondary }]}>
-                    Domyślnie pytaj o biometrię przy starcie aplikacji
-                  </Text>
-                </View>
-                <Ionicons
-                  name={useBio ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                  color={useBio ? theme.success : theme.textMuted}
-                />
+              <Ionicons name="scan-outline" size={20} color={theme.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.bioTitle, { color: theme.text }]}>
+                  Odblokowywanie przez Face ID / Touch ID
+                </Text>
+                <Text style={[styles.bioSub, { color: theme.textSecondary }]}>
+                  Domyślnie pytaj o biometrię przy starcie aplikacji
+                </Text>
               </View>
-            </GlassCard>
+              <Ionicons
+                name={useBio ? 'checkmark-circle' : 'ellipse-outline'}
+                size={22}
+                color={useBio ? theme.success : theme.textMuted}
+              />
+            </GlassSurface>
           )}
         </View>
 
         {/* Numeric Keypad */}
-        <Animated.View entering={FadeInDown.duration(280)} style={styles.keypad}>
+        <View style={styles.keypad}>
           {[
             ['1', '2', '3'],
             ['4', '5', '6'],
@@ -298,7 +299,7 @@ export function SecurityGateOverlay({ mode }: SecurityGateOverlayProps) {
               <Ionicons name="backspace-outline" size={22} color={theme.textSecondary} />
             </Pressable>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Bottom Footer Action */}
         <View style={styles.footerRow}>
@@ -394,6 +395,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    padding: 12,
   },
   bioTitle: {
     fontSize: 13,

@@ -1,3 +1,4 @@
+import { getBackendBaseUrl } from './backendConfig';
 import { buildSignedOAuthUrl, OAuthCredentials, parseQueryString } from './oauth1';
 import {
   UsosBankAccount,
@@ -143,10 +144,108 @@ function parseNumericGrade(symbol: string): number | null {
 export class UsosApiClient {
   private baseUrl: string;
   private credentials: OAuthCredentials;
+  private backendSessionToken?: string;
+  private backendBaseUrl?: string;
 
-  constructor(baseUrl: string, credentials: OAuthCredentials) {
+  constructor(
+    baseUrl: string,
+    credentials: OAuthCredentials,
+    backendProxy?: { sessionToken: string; backendUrl?: string }
+  ) {
     this.baseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
     this.credentials = credentials;
+    if (backendProxy?.sessionToken) {
+      this.backendSessionToken = backendProxy.sessionToken;
+      this.backendBaseUrl = (backendProxy.backendUrl || getBackendBaseUrl()).replace(/\/+$/, '');
+    }
+  }
+
+  /**
+   * Creates a Zero-Secret client that routes all signed USOS API calls through
+   * the central Vercel BFF backend using an opaque AES-256-GCM encrypted session token.
+   */
+  static fromBackendSession(
+    baseUrl: string,
+    sessionToken: string,
+    backendUrl?: string
+  ): UsosApiClient {
+    return new UsosApiClient(
+      baseUrl,
+      { consumerKey: '', consumerSecret: '' },
+      { sessionToken, backendUrl }
+    );
+  }
+
+  /**
+   * Step 1 of OAuth 1.0a via Central Vercel BFF (keeps Consumer Key & Secret strictly on server).
+   */
+  static async requestTokenViaBackend(params: {
+    installationId: string;
+    baseUrl: string;
+    callbackUrl?: string;
+    scopes?: string;
+    backendUrl?: string;
+  }): Promise<{
+    authorizeUrl: string;
+    requestTokenSession: string;
+    installationId: string;
+  }> {
+    const backendBase = (params.backendUrl || getBackendBaseUrl()).replace(/\/+$/, '');
+    const res = await fetch(`${backendBase}/api/usos/oauth/request-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        installationId: params.installationId,
+        baseUrl: params.baseUrl,
+        callbackUrl: params.callbackUrl || 'riftdaily://oauth-callback',
+        scopes: params.scopes || USOS_DEFAULT_SCOPES,
+      }),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.authorizeUrl || !json?.requestTokenSession) {
+      throw new Error(
+        json?.error || `Błąd inicjacji logowania przez backend (${res.status})`
+      );
+    }
+    return {
+      authorizeUrl: String(json.authorizeUrl),
+      requestTokenSession: String(json.requestTokenSession),
+      installationId: String(json.installationId || params.installationId),
+    };
+  }
+
+  /**
+   * Step 3 of OAuth 1.0a via Central Vercel BFF: exchanges verifier for an encrypted session token.
+   */
+  static async exchangeAccessTokenViaBackend(params: {
+    requestTokenSession: string;
+    oauthVerifier: string;
+    backendUrl?: string;
+  }): Promise<{
+    sessionToken: string;
+    installationId: string;
+  }> {
+    const backendBase = (params.backendUrl || getBackendBaseUrl()).replace(/\/+$/, '');
+    const res = await fetch(`${backendBase}/api/usos/oauth/access-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestTokenSession: params.requestTokenSession,
+        oauthVerifier: params.oauthVerifier.trim(),
+      }),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.sessionToken) {
+      throw new Error(
+        json?.error || `Błąd wymiany tokenu przez backend (${res.status})`
+      );
+    }
+    return {
+      sessionToken: String(json.sessionToken),
+      installationId: String(json.installationId || ''),
+    };
   }
 
   private endpoint(path: string): string {
@@ -287,12 +386,35 @@ export class UsosApiClient {
   }
 
   /**
-   * Perform a signed OAuth 1.0a GET request to any USOS API method
+   * Perform a signed OAuth 1.0a GET request to any USOS API method.
+   * Uses the central Vercel BFF proxy when a server-encrypted sessionToken is present;
+   * falls back to direct local OAuth signing only when the user manually supplies BYOK keys.
    */
   async callMethod<T>(
     methodPath: string,
     params: Record<string, string | number | boolean | undefined> = {}
   ): Promise<T> {
+    if (this.backendSessionToken && this.backendBaseUrl) {
+      const response = await fetch(`${this.backendBaseUrl}/api/usos/call`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.backendSessionToken}`,
+        },
+        body: JSON.stringify({
+          method: methodPath,
+          params,
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          json?.error || `USOS Proxy ${methodPath} (${response.status})`
+        );
+      }
+      return json.data as T;
+    }
+
     const url = buildSignedOAuthUrl(
       'GET',
       this.endpoint(methodPath),

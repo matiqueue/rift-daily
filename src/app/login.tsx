@@ -16,8 +16,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackdrop } from '@/components/AmbientBackdrop';
 import { Avatar } from '@/components/Avatar';
-import { GlassCard } from '@/components/GlassCard';
+import { GlassSurface } from '@/components/GlassSurface';
+import { LivePulseDot, TypewriterText } from '@/components/KineticText';
 import { UniversityIcon } from '@/components/UniversityIcon';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
@@ -90,6 +92,7 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      <AmbientBackdrop variant="today" />
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -101,24 +104,25 @@ export default function LoginScreen() {
             {/* Header */}
             <View style={styles.headerBlock}>
               <View style={styles.headerTopRow}>
-                <Text style={[styles.appName, { color: theme.textSecondary }]}>
-                  RIFT DAILY // E-DZIENNIK USOS
-                </Text>
-                <Pressable
+                <TypewriterText
+                  text="RIFT DAILY · E-DZIENNIK USOS"
+                  speedMs={20}
+                  style={[styles.appName, { color: theme.accent }]}
+                />
+                <GlassSurface
+                  radius={999}
+                  interactive
                   onPress={toggleLightDark}
-                  style={[
-                    styles.themeToggleBtn,
-                    { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                  ]}>
+                  contentStyle={styles.themeToggleBtn}>
                   <Ionicons
                     name={theme.isDark ? 'sunny-outline' : 'moon-outline'}
-                    size={16}
+                    size={15}
                     color={theme.text}
                   />
                   <Text style={[styles.themeToggleText, { color: theme.text }]}>
                     {theme.isDark ? 'JASNY' : 'CIEMNY'}
                   </Text>
-                </Pressable>
+                </GlassSurface>
               </View>
               <Text style={[styles.title, { color: theme.text }]}>Wybierz swoją uczelnię</Text>
               <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -126,11 +130,11 @@ export default function LoginScreen() {
               </Text>
             </View>
 
-            {/* Real USOS Account Hero Card */}
-            <GlassCard elevated padding={18} style={styles.realAccountHero}>
+            {/* Real USOS Account Liquid Glass Panel */}
+            <GlassSurface radius={20} contentStyle={[styles.realAccountHero, { padding: 18 }]}>
               <View style={styles.heroBadgeRow}>
                 <View style={[styles.liveTag, { backgroundColor: theme.successSoft }]}>
-                  <View style={[styles.liveDot, { backgroundColor: theme.success }]} />
+                  <LivePulseDot color={theme.success} size={5} active />
                   <Text style={[styles.liveTagText, { color: theme.success }]}>
                     BEZPIECZNE LOGOWANIE UCZELNIANE
                   </Text>
@@ -141,7 +145,7 @@ export default function LoginScreen() {
                 <UniversityIcon installation={selectedInstallation} size={56} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.uniCityLabel, { color: theme.textSecondary }]}>
-                    {selectedInstallation.city.toUpperCase()} // {selectedInstallation.shortName}
+                    {`${selectedInstallation.city.toUpperCase()} • ${selectedInstallation.shortName}`}
                   </Text>
                   <Text style={[styles.activeUniName, { color: theme.text }]} numberOfLines={2}>
                     {selectedInstallation.namePl}
@@ -212,7 +216,7 @@ export default function LoginScreen() {
                   Autoryzacja kodem PIN lub diagnostyka serwera USOS
                 </Text>
               </Pressable>
-            </GlassCard>
+            </GlassSurface>
 
             {/* University Picker Section */}
             <Text style={[styles.sectionHeading, { color: theme.textSecondary }]}>

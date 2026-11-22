@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { LegalPage, LegalRoute } from './components/LegalPages';
 import {
   Download,
   Smartphone,
@@ -30,8 +31,42 @@ function GithubIcon({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
+function resolveLegalRoute(pathname: string): LegalRoute | null {
+  const clean = pathname.replace(/\/+$/, '').toLowerCase();
+  if (clean === '/privacy') return 'privacy';
+  if (clean === '/terms') return 'terms';
+  if (clean === '/support') return 'support';
+  return null;
+}
+
 export default function App() {
+  const [legalRoute, setLegalRoute] = useState<LegalRoute | null>(() =>
+    resolveLegalRoute(window.location.pathname)
+  );
   const [activeTab, setActiveTab] = useState<'dashboard' | 'timetable' | 'settings' | 'login'>('dashboard');
+
+  useEffect(() => {
+    const onPop = () => setLegalRoute(resolveLegalRoute(window.location.pathname));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const navigateLegal = (target: LegalRoute | null) => {
+    const path = target ? `/${target}` : '/';
+    window.history.pushState({}, '', path);
+    setLegalRoute(target);
+    window.scrollTo(0, 0);
+  };
+
+  if (legalRoute) {
+    return (
+      <LegalPage
+        route={legalRoute}
+        onNavigateHome={() => navigateLegal(null)}
+        onNavigate={(r) => navigateLegal(r)}
+      />
+    );
+  }
 
   const screenshots = {
     dashboard: {
@@ -76,7 +111,7 @@ export default function App() {
                 Rift Daily
               </span>
               <span className="text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                v1.0.0
+                v1.2.0
               </span>
             </div>
           </div>
@@ -558,7 +593,37 @@ export default function App() {
             <span className="text-xs text-zinc-500">• e-Dziennik Akademicki</span>
           </div>
 
-          <div className="flex items-center gap-6 text-xs text-zinc-400">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-zinc-400">
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateLegal('privacy');
+              }}
+              className="hover:text-white transition-colors"
+            >
+              Prywatność (RODO)
+            </a>
+            <a
+              href="/terms"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateLegal('terms');
+              }}
+              className="hover:text-white transition-colors"
+            >
+              Regulamin
+            </a>
+            <a
+              href="/support"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateLegal('support');
+              }}
+              className="hover:text-white transition-colors"
+            >
+              Pomoc
+            </a>
             <a
               href="https://github.com/matiqueue"
               target="_blank"

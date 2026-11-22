@@ -279,3 +279,16 @@ Ten projekt jest udostępniany na licencji **Rift Daily Non-Commercial Open Sour
   <br />
   <sub>Main Contributor: <a href="https://github.com/matiqueue">@matiqueue</a> • <a href="https://matiqueue-portfolio.vercel.app">☕ Buy me a coffee</a></sub>
 </div>
+
+
+---
+
+## Dokumentacja, Bezpieczeństwo i Wydania
+
+- **Centralna pamięć projektu i ADR:** [`docs/PROJECT_MEMORY.md`](docs/PROJECT_MEMORY.md)
+- **Architektura, klucze SecureStore i backend BFF:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- **Runbook wydań (SemVer, App Store, Google Play, CI/CD):** [`docs/RELEASE_AND_STORES.md`](docs/RELEASE_AND_STORES.md)
+- **Paczka publikacyjna sklepów (PL/EN, Data Safety, IARC):** [`docs/playstore_connect_pack.md`](docs/playstore_connect_pack.md)
+- **Centralny hub instrukcji dla agentów AI:** [`AGENTS.md`](AGENTS.md) (`CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`)
+- **Historia zmian:** [`CHANGELOG.md`](CHANGELOG.md)
+- **Strony prawne i pomoc:** [Polityka prywatności (RODO)](https://rift-daily.vercel.app/privacy) · [Regulamin](https://rift-daily.vercel.app/terms) · [Pomoc i kontakt](https://rift-daily.vercel.app/support)

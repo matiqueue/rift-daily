@@ -1,0 +1,14 @@
+/.git
+/.expo
+/node_modules
+/ios
+/android
+/src
+/assets
+/docs
+/scripts
+/website/node_modules
+/website/dist
+/.env
+/.env.local
+/website/.env.local

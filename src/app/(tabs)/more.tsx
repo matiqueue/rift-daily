@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import React from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,360 +12,396 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackdrop } from '@/components/AmbientBackdrop';
 import { Avatar } from '@/components/Avatar';
-import { GlassCard } from '@/components/GlassCard';
+import { GlassSurface } from '@/components/GlassSurface';
+import {
+  EditorialFade,
+  HairlineDraw,
+  ScrambleText,
+  TypewriterText,
+} from '@/components/KineticText';
+import { ListRow } from '@/components/ListRow';
+import { SectionHeader } from '@/components/SectionHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { SettingsSection } from '@/components/SettingsSection';
 import { UniversityIcon } from '@/components/UniversityIcon';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
-import { MONO_FONT, ThemeMode } from '@/theme/theme';
+import { MONO_FONT } from '@/theme/theme';
+
+type MoreSection = 'modules' | 'settings';
+
+function parseSectionParam(raw?: string): MoreSection {
+  return raw === 'settings' ? 'settings' : 'modules';
+}
 
 export default function MoreHubScreen() {
+  const { section: sectionParam } = useLocalSearchParams<{ section?: string }>();
   const theme = useAppTheme();
+
   const user = useUsosStore((s) => s.user);
   const selectedInstallation = useUsosStore((s) => s.selectedInstallation);
-  const isSyncing = useUsosStore((s) => s.isSyncing);
-  const syncFromLiveApi = useUsosStore((s) => s.syncFromLiveApi);
   const lastSyncedAt = useUsosStore((s) => s.lastSyncedAt);
-  const themeMode = useUsosStore((s) => s.themeMode);
-  const setThemeMode = useUsosStore((s) => s.setThemeMode);
-  const securityEnabled = useUsosStore((s) => s.securityEnabled);
-  const biometricsEnabled = useUsosStore((s) => s.biometricsEnabled);
-  const securityPin = useUsosStore((s) => s.securityPin);
-  const configureSecurity = useUsosStore((s) => s.configureSecurity);
-  const lockSession = useUsosStore((s) => s.lockSession);
   const logout = useUsosStore((s) => s.logout);
   const exams = useUsosStore((s) => s.exams);
   const payments = useUsosStore((s) => s.payments);
   const surveys = useUsosStore((s) => s.surveys);
   const staff = useUsosStore((s) => s.staff);
   const buildings = useUsosStore((s) => s.buildings);
+  const notificationPrefs = useUsosStore((s) => s.notificationPrefs);
 
-  const pendingSurveys = surveys.filter((s) => !s.filled_out).length;
-  const unpaidCount = payments.filter((p) => p.status === 'unpaid').length;
+  const [sectionOverride, setSectionOverride] = useState<{
+    forParam: string | undefined;
+    value: MoreSection;
+  } | null>(null);
 
-  const modules = [
-    {
-      slug: 'mcard',
-      title: 'mLegitymacja Studencka (ELS)',
-      subtitle: 'Zdjęcie, status studenta i kod karty',
-      icon: 'id-card-outline' as const,
-      badge: 'AKTYWNA',
-    },
-    {
-      slug: 'staff',
-      title: 'Twoi Wykładowcy i Katalog Kadry',
-      subtitle: 'Zdjęcia, tytuły naukowe, konsultacje i e-mail',
-      icon: 'people-outline' as const,
-      badge: `${staff.length}`,
-    },
-    {
-      slug: 'exams',
-      title: 'Egzaminy i Sesja',
-      subtitle: 'Terminy egzaminów i protokoły sesyjne',
-      icon: 'calendar-clear-outline' as const,
-      badge: `${exams.length}`,
-    },
-    {
-      slug: 'payments',
-      title: 'Płatności i Konto Uczelniane',
-      subtitle: 'Rozliczenia ze studiów i numer IBAN',
-      icon: 'wallet-outline' as const,
-      badge: unpaidCount > 0 ? `${unpaidCount}` : '0 PLN',
-    },
-    {
-      slug: 'surveys',
-      title: 'Ankiety Oceny Zajęć',
-      subtitle: 'Anonimowe ankiety studenckie w USOS',
-      icon: 'chatbox-ellipses-outline' as const,
-      badge: `${pendingSurveys}`,
-    },
-    {
-      slug: 'buildings',
-      title: 'Budynki i Kampus Uczelni',
-      subtitle: 'Lokalizacje budynków dydaktycznych',
-      icon: 'map-outline' as const,
-      badge: `${buildings.length}`,
-    },
-    {
-      slug: 'registrations',
-      title: 'Rejestracje na Przedmioty',
-      subtitle: 'Tury zapisów na przedmioty i do grup',
-      icon: 'checkbox-outline' as const,
-      badge: 'USOS',
-    },
-    {
-      slug: 'thesis',
-      title: 'Dyplom (APD), Akademik i Obiegówka',
-      subtitle: 'Archiwum Prac Dyplomowych i rozliczenia',
-      icon: 'ribbon-outline' as const,
-      badge: 'APD',
-    },
-  ];
+  const activeSection: MoreSection =
+    sectionOverride && sectionOverride.forParam === sectionParam
+      ? sectionOverride.value
+      : parseSectionParam(sectionParam);
+
+  const setActiveSection = (next: MoreSection) => {
+    setSectionOverride({ forParam: sectionParam, value: next });
+  };
+
+  const hapticTap = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync().catch(() => {});
+    }
+  };
+
+  const pendingSurveys = useMemo(
+    () => surveys.filter((s) => !s.filled_out).length,
+    [surveys]
+  );
+  const unpaidCount = useMemo(
+    () => payments.filter((p) => p.status === 'unpaid' && p.amount > 0).length,
+    [payments]
+  );
+
+  const activeNotifCount = [
+    notificationPrefs.classChanges,
+    notificationPrefs.classReminders,
+    notificationPrefs.newGrades,
+    notificationPrefs.tasksAndExams,
+    notificationPrefs.paymentsAndInstallments,
+    notificationPrefs.surveys,
+  ].filter(Boolean).length;
+
+  // 4 core modules rendered in an open hairline 2x2 editorial matrix (no boxy cards)
+  const matrixQuadrants = useMemo(
+    () => [
+      {
+        slug: 'payments',
+        title: 'Płatności',
+        subtitle: 'Saldo i rachunek IBAN',
+        icon: 'wallet-outline' as const,
+        value: unpaidCount > 0 ? `${unpaidCount} RATA` : '0 PLN',
+        alert: unpaidCount > 0,
+      },
+      {
+        slug: 'exams',
+        title: 'Egzaminy',
+        subtitle: 'Sesja i terminy',
+        icon: 'calendar-clear-outline' as const,
+        value: String(exams.length),
+        alert: false,
+      },
+      {
+        slug: 'staff',
+        title: 'Kadra',
+        subtitle: 'Konsultacje i e-mail',
+        icon: 'people-outline' as const,
+        value: String(staff.length),
+        alert: false,
+      },
+      {
+        slug: 'surveys',
+        title: 'Ankiety',
+        subtitle: 'Ocena zajęć USOS',
+        icon: 'chatbox-ellipses-outline' as const,
+        value: pendingSurveys > 0 ? `${pendingSurveys} NOWE` : '0',
+        alert: pendingSurveys > 0,
+      },
+    ],
+    [unpaidCount, exams.length, staff.length, pendingSurveys]
+  );
+
+  const secondaryModules = useMemo(
+    () => [
+      {
+        slug: 'buildings',
+        title: 'Budynki i kampus',
+        subtitle: 'Lokalizacje i adresy wydziałów',
+        icon: 'map-outline' as const,
+        badge: `${buildings.length}`,
+      },
+      {
+        slug: 'registrations',
+        title: 'Rejestracje na przedmioty',
+        subtitle: 'Tury zapisów i rejestracja żetonowa',
+        icon: 'checkbox-outline' as const,
+        badge: 'USOS',
+      },
+      {
+        slug: 'thesis',
+        title: 'Dyplom (APD) i sprawy',
+        subtitle: 'Praca dyplomowa, akademik i obiegówka',
+        icon: 'ribbon-outline' as const,
+        badge: 'APD',
+      },
+    ],
+    [buildings.length]
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      <AmbientBackdrop variant="more" />
+
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        {/* Clean Editorial Header (matching Dziś & Plan) */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <TypewriterText
+              text={`RIFT DAILY · ${selectedInstallation.shortName}`}
+              speedMs={18}
+              startDelayMs={30}
+              style={[styles.monoOverline, { color: theme.textMuted }]}
+              numberOfLines={1}
+            />
+            <Text style={[styles.title, { color: theme.text }]}>Więcej</Text>
+          </View>
+
+          <GlassSurface
+            radius={999}
+            interactive
+            onPress={() => setActiveSection('settings')}
+            contentStyle={styles.notifStatusPill}>
+            <Ionicons
+              name={
+                notificationPrefs.enabled ? 'notifications-outline' : 'notifications-off-outline'
+              }
+              size={13}
+              color={notificationPrefs.enabled ? theme.text : theme.textMuted}
+            />
+            <Text
+              style={[
+                styles.notifStatusText,
+                { color: notificationPrefs.enabled ? theme.text : theme.textMuted },
+              ]}>
+              {notificationPrefs.enabled ? `${activeNotifCount}/6` : 'OFF'}
+            </Text>
+          </GlassSurface>
+        </View>
+
+        {/* Sliding Switcher */}
+        <View style={styles.segmentWrap}>
+          <SegmentedControl<MoreSection>
+            options={[
+              { label: 'Moduły', value: 'modules', badge: 8 },
+              { label: 'Ustawienia', value: 'settings' },
+            ]}
+            value={activeSection}
+            onChange={setActiveSection}
+          />
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isSyncing}
-              onRefresh={syncFromLiveApi}
-              tintColor={theme.text}
-            />
-          }>
-          <View>
-            <Text style={[styles.monoOverline, { color: theme.accent }]}>
-              RIFT DAILY // E-DZIENNIK USOS
-            </Text>
-            <Text style={[styles.title, { color: theme.text }]}>Moduły uczelniane</Text>
-          </View>
-
-          {/* Student & University Profile Card with Photo */}
-          <GlassCard elevated style={styles.profileCard}>
-            <View style={styles.profileRow}>
-              <View style={{ position: 'relative' }}>
-                <Avatar
-                  name={`${user.first_name} ${user.last_name}`}
-                  uri={user.photo_url}
-                  size={58}
-                  borderColor={theme.cardBorder}
-                  variant="student"
-                />
-                <View style={{ position: 'absolute', bottom: -3, right: -4 }}>
-                  <UniversityIcon installation={selectedInstallation} size={24} />
-                </View>
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.profileName, { color: theme.text }]}>
-                  {user.first_name} {user.last_name}
-                </Text>
-                <Text style={[styles.profileMeta, { color: theme.textSecondary }]}>
-                  #{user.student_number} // {selectedInstallation.shortName}
-                </Text>
-                <Text style={[styles.profileUni, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {user.programmes[0]?.name.pl || selectedInstallation.namePl}
-                </Text>
-              </View>
-            </View>
-
-            <View style={[styles.syncStrip, { borderTopColor: theme.separator }]}>
-              <Text style={[styles.syncText, { color: theme.textSecondary }]}>
-                SYNC: {lastSyncedAt || 'TERAZ'}
-              </Text>
-              <Pressable onPress={() => router.push('/(tabs)/settings')}>
-                <Text style={[styles.switchUniLink, { color: theme.accent }]}>
-                  USTAWIENIA I POWIADOMIENIA →
-                </Text>
-              </Pressable>
-            </View>
-          </GlassCard>
-
-          {/* Theme Switcher Card (Jasny / Ciemny / Systemowy) */}
-          <GlassCard style={{ gap: 10 }}>
-            <View style={styles.themeTopRow}>
-              <Text style={[styles.sectionMono, { color: theme.textSecondary }]}>
-                MOTYW KOLORYSTYCZNY (JASNY / CIEMNY)
-              </Text>
-              <Ionicons
-                name={theme.isDark ? 'moon-outline' : 'sunny-outline'}
-                size={16}
-                color={theme.warning}
-              />
-            </View>
-            <SegmentedControl<ThemeMode>
-              options={[
-                { label: 'Ciemny (Dark)', value: 'dark' },
-                { label: 'Jasny (Light)', value: 'light' },
-                { label: 'Auto', value: 'system' },
-              ]}
-              value={themeMode}
-              onChange={(m) => setThemeMode(m)}
-            />
-          </GlassCard>
-
-          {/* PIN & Face ID Biometric Security Card */}
-          <GlassCard style={{ gap: 10 }}>
-            <View style={styles.themeTopRow}>
-              <Text style={[styles.sectionMono, { color: theme.accent }]}>
-                OCHRONA PIN / FACE ID
-              </Text>
-              <Ionicons
-                name={securityEnabled ? 'shield-checkmark' : 'shield-outline'}
-                size={16}
-                color={securityEnabled ? theme.success : theme.textMuted}
-              />
-            </View>
-
+          showsVerticalScrollIndicator={false}>
+          {/* Open Editorial Student Hero (identical visual DNA to Dziś Live Hero) */}
+          <EditorialFade delayMs={25}>
             <Pressable
               onPress={() => {
-                if (securityEnabled) {
-                  configureSecurity({ enabled: false, pin: '', biometrics: false });
-                } else {
-                  useUsosStore.setState({ securityConfigured: false });
-                }
+                hapticTap();
+                router.push('/modal/module/mcard');
               }}
-              style={styles.settingRowFirst}>
-              <Ionicons
-                name="keypad-outline"
-                size={18}
-                color={securityEnabled ? theme.success : theme.text}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.settingText, { color: theme.text }]}>
-                  {securityEnabled
-                    ? 'Kod PIN i Face ID są aktywne'
-                    : 'Skonfiguruj 4-cyfrowy kod PIN i Face ID'}
-                </Text>
-                <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}>
-                  {securityEnabled
-                    ? 'Dotknij, aby wyłączyć lub zresetować kod PIN'
-                    : 'Domyślna blokada przy uruchomieniu aplikacji'}
-                </Text>
-              </View>
-              <Text
-                style={{
-                  fontFamily: MONO_FONT,
-                  fontSize: 11,
-                  fontWeight: '800',
-                  color: securityEnabled ? theme.danger : theme.accent,
-                }}>
-                {securityEnabled ? 'WYŁĄCZ' : 'USTAW PIN'}
-              </Text>
-            </Pressable>
+              style={({ pressed }) => [styles.studentHeroWrap, pressed && { opacity: 0.78 }]}>
+              <HairlineDraw color={theme.separator} delayMs={20} />
 
-            {securityEnabled && (
-              <>
-                <Pressable
-                  onPress={() =>
-                    configureSecurity({
-                      enabled: true,
-                      pin: securityPin,
-                      biometrics: !biometricsEnabled,
-                    })
-                  }
-                  style={[styles.settingRow, { borderTopColor: theme.separator }]}>
-                  <Ionicons name="scan-outline" size={18} color={theme.accent} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>
-                    Odblokowywanie przez Face ID / Touch ID
-                  </Text>
-                  <Ionicons
-                    name={biometricsEnabled ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={20}
-                    color={biometricsEnabled ? theme.success : theme.textMuted}
-                  />
-                </Pressable>
-
-                <Pressable
-                  onPress={lockSession}
-                  style={[styles.settingRow, { borderTopColor: theme.separator }]}>
-                  <Ionicons name="lock-closed-outline" size={18} color={theme.warning} />
-                  <Text style={[styles.settingText, { color: theme.text }]}>
-                    Zablokuj aplikację teraz
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                </Pressable>
-              </>
-            )}
-          </GlassCard>
-
-          {/* Modules List */}
-          <Text style={[styles.sectionMono, { color: theme.textSecondary, marginTop: 4 }]}>
-            WSZYSTKIE MODUŁY
-          </Text>
-
-          <View style={styles.modulesStack}>
-            {modules.map((m) => (
-              <GlassCard
-                key={m.slug}
-                padding={14}
-                onPress={() => {
-                  if (Platform.OS === 'ios') {
-                    Haptics.selectionAsync().catch(() => {});
-                  }
-                  router.push(`/modal/module/${m.slug}`);
-                }}>
-                <View style={styles.modRow}>
-                  <View
-                    style={[
-                      styles.modIconBox,
-                      {
-                        backgroundColor: theme.bgSecondary,
-                        borderColor: theme.cardBorder,
-                      },
-                    ]}>
-                    <Ionicons name={m.icon} size={20} color={theme.text} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.modTitle, { color: theme.text }]} numberOfLines={1}>
-                      {m.title}
-                    </Text>
-                    <Text
-                      style={[styles.modSubtitle, { color: theme.textSecondary }]}
-                      numberOfLines={1}>
-                      {m.subtitle}
-                    </Text>
-                  </View>
-                  <View style={styles.modRight}>
-                    <View
-                      style={[
-                        styles.modBadge,
-                        {
-                          backgroundColor: theme.bgSecondary,
-                          borderColor: theme.cardBorder,
-                        },
-                      ]}>
-                      <Text style={[styles.modBadgeText, { color: theme.text }]}>
-                        {m.badge}
-                      </Text>
+              <View style={styles.studentHeroInner}>
+                <View style={styles.studentTopRow}>
+                  <View style={styles.avatarWrap}>
+                    <Avatar
+                      name={`${user.first_name} ${user.last_name}`}
+                      uri={user.photo_url}
+                      size={46}
+                      borderColor={theme.cardBorder}
+                      variant="student"
+                    />
+                    <View style={styles.uniOverlay}>
+                      <UniversityIcon installation={selectedInstallation} size={17} />
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                  </View>
+
+                  <View style={styles.identityTextCol}>
+                    <Text style={[styles.identityName, { color: theme.text }]} numberOfLines={1}>
+                      {user.first_name} {user.last_name}
+                    </Text>
+                    <Text style={[styles.identitySub, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {user.programmes[0]?.name.pl || selectedInstallation.namePl}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.elsPrimaryPill, { backgroundColor: theme.primary }]}>
+                    <ScrambleText
+                      text="ELS"
+                      durationMs={280}
+                      style={[styles.elsPrimaryText, { color: theme.primaryContrast }]}
+                    />
+                    <Ionicons name="chevron-forward" size={12} color={theme.primaryContrast} />
                   </View>
                 </View>
-              </GlassCard>
-            ))}
-          </View>
 
-          {/* Account Actions */}
-          <Text style={[styles.sectionMono, { color: theme.textSecondary, marginTop: 4 }]}>
-            POŁĄCZENIE I KONTO USOS
-          </Text>
+                {/* 3-Column Open Student Telemetry Row */}
+                <View style={styles.telemetryGrid}>
+                  <View style={styles.telemetryCell}>
+                    <Text style={[styles.telemetryLabel, { color: theme.textMuted }]}>ALBUM</Text>
+                    <Text style={[styles.telemetryValue, { color: theme.text }]} numberOfLines={1}>
+                      #{user.student_number}
+                    </Text>
+                  </View>
 
-          <GlassCard style={{ gap: 12 }}>
-            <Pressable onPress={syncFromLiveApi} style={styles.settingRowFirst}>
-              <Ionicons name="sync-outline" size={18} color={theme.text} />
-              <Text style={[styles.settingText, { color: theme.text }]}>
-                Odśwież wszystkie dane z uczelni
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                  <View style={[styles.telemetryDivider, { backgroundColor: theme.separator }]} />
+
+                  <View style={styles.telemetryCell}>
+                    <Text style={[styles.telemetryLabel, { color: theme.textMuted }]}>SEMESTR</Text>
+                    <Text style={[styles.telemetryValue, { color: theme.text }]} numberOfLines={1}>
+                      {user.current_term_id}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.telemetryDivider, { backgroundColor: theme.separator }]} />
+
+                  <View style={styles.telemetryCell}>
+                    <Text style={[styles.telemetryLabel, { color: theme.textMuted }]}>SYNC</Text>
+                    <Text
+                      style={[styles.telemetryValue, { color: theme.textSecondary }]}
+                      numberOfLines={1}>
+                      {lastSyncedAt || '—'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <HairlineDraw color={theme.separator} delayMs={80} />
             </Pressable>
+          </EditorialFade>
 
-            <Pressable
-              onPress={() => router.push('/modal/api-config')}
-              style={[styles.settingRow, { borderTopColor: theme.separator }]}>
-              <Ionicons name="key-outline" size={18} color={theme.text} />
-              <Text style={[styles.settingText, { color: theme.text }]}>
-                Autoryzacja PIN i diagnostyka serwera USOS
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-            </Pressable>
+          {activeSection === 'modules' ? (
+            <>
+              {/* Open Hairline 2x2 Editorial Matrix (NO boxy cards — crisp hairline cross grid) */}
+              <View style={styles.matrixWrap}>
+                {[matrixQuadrants.slice(0, 2), matrixQuadrants.slice(2, 4)].map(
+                  (rowItems, rowIdx) => (
+                    <View
+                      key={rowIdx}
+                      style={[
+                        styles.matrixRow,
+                        rowIdx === 0 && {
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: theme.separator,
+                        },
+                      ]}>
+                      {rowItems.map((item, colIdx) => (
+                        <Pressable
+                          key={item.slug}
+                          onPress={() => {
+                            hapticTap();
+                            router.push(`/modal/module/${item.slug}`);
+                          }}
+                          style={({ pressed }) => [
+                            styles.matrixCell,
+                            colIdx === 0
+                              ? {
+                                  paddingRight: 14,
+                                  borderRightWidth: StyleSheet.hairlineWidth,
+                                  borderRightColor: theme.separator,
+                                }
+                              : { paddingLeft: 14 },
+                            pressed && { opacity: 0.65 },
+                          ]}>
+                          <View style={styles.matrixCellTop}>
+                            <Ionicons name={item.icon} size={17} color={theme.textSecondary} />
+                            <Text
+                              style={[
+                                styles.matrixMetric,
+                                { color: item.alert ? theme.warning : theme.text },
+                              ]}
+                              numberOfLines={1}>
+                              {item.value}
+                            </Text>
+                          </View>
 
-            <Pressable
-              onPress={async () => {
-                await logout();
-                router.replace('/login');
-              }}
-              style={[styles.settingRow, { borderTopColor: theme.separator }]}>
-              <Ionicons name="log-out-outline" size={18} color={theme.danger} />
-              <Text style={[styles.settingText, { color: theme.danger }]}>
-                Wyloguj z konta USOS i wróć do wyboru uczelni
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.danger} />
-            </Pressable>
-          </GlassCard>
+                          <View style={styles.matrixCellBottom}>
+                            <Text style={[styles.matrixTitle, { color: theme.text }]} numberOfLines={1}>
+                              {item.title}
+                            </Text>
+                            <Text
+                              style={[styles.matrixSub, { color: theme.textMuted }]}
+                              numberOfLines={1}>
+                              {item.subtitle}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )
+                )}
+              </View>
+
+              {/* Secondary Modules — Clean Hairline Rows */}
+              <SectionHeader title="Pozostałe moduły" />
+              {secondaryModules.map((m, idx) => (
+                <ListRow
+                  key={m.slug}
+                  dense
+                  title={m.title}
+                  subtitle={m.subtitle}
+                  left={<Ionicons name={m.icon} size={18} color={theme.textSecondary} />}
+                  rightBadge={m.badge}
+                  showChevron
+                  showDivider={idx < secondaryModules.length - 1}
+                  onPress={() => router.push(`/modal/module/${m.slug}`)}
+                />
+              ))}
+
+              {/* Connection & Account */}
+              <SectionHeader
+                title="Połączenie i sesja"
+                rightText={`SYNC ${lastSyncedAt || '—'}`}
+              />
+              <ListRow
+                dense
+                title="Ustawienia powiadomień, motywu i PIN"
+                left={<Ionicons name="settings-outline" size={18} color={theme.textSecondary} />}
+                showChevron
+                onPress={() => setActiveSection('settings')}
+              />
+              <ListRow
+                dense
+                title="Autoryzacja PIN i diagnostyka API"
+                left={<Ionicons name="key-outline" size={18} color={theme.textSecondary} />}
+                showChevron
+                onPress={() => router.push('/modal/api-config')}
+              />
+              <ListRow
+                dense
+                destructive
+                title="Wyloguj z konta USOS"
+                left={<Ionicons name="log-out-outline" size={18} color={theme.danger} />}
+                showChevron
+                showDivider={false}
+                onPress={async () => {
+                  await logout();
+                  router.replace('/login');
+                }}
+              />
+            </>
+          ) : (
+            <SettingsSection />
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -377,131 +412,159 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 118,
-    gap: 12,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
   },
   monoOverline: {
     fontFamily: MONO_FONT,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.9,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.6,
-    marginTop: 2,
-  },
-  profileCard: {
-    gap: 12,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  profileMeta: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  profileUni: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  syncStrip: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    paddingTop: 10,
-    gap: 8,
-  },
-  syncText: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    flex: 1,
-  },
-  switchUniLink: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
+    fontSize: 28,
     fontWeight: '800',
+    letterSpacing: -0.8,
+    marginTop: 1,
   },
-  themeTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionMono: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-  modulesStack: {
-    gap: 8,
-  },
-  modRow: {
+  notifStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
   },
-  modIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  modSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  modRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  modBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 9,
-    borderWidth: 1,
-  },
-  modBadgeText: {
+  notifStatusText: {
     fontFamily: MONO_FONT,
     fontSize: 10,
     fontWeight: '800',
   },
-  settingRowFirst: {
+  segmentWrap: {
+    paddingHorizontal: 18,
+    marginBottom: 8,
+  },
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 112,
+  },
+  studentHeroWrap: {
+    marginBottom: 4,
+  },
+  studentHeroInner: {
+    paddingVertical: 14,
+    gap: 14,
+  },
+  studentTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderTopWidth: 1,
-    paddingTop: 12,
+  avatarWrap: {
+    position: 'relative',
+    flexShrink: 0,
   },
-  settingText: {
+  uniOverlay: {
+    position: 'absolute',
+    bottom: -2,
+    right: -3,
+  },
+  identityTextCol: {
     flex: 1,
-    fontSize: 14,
+    minWidth: 0,
+    gap: 2,
+  },
+  identityName: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.35,
+  },
+  identitySub: {
+    fontSize: 12,
+  },
+  elsPrimaryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    flexShrink: 0,
+  },
+  elsPrimaryText: {
+    fontFamily: MONO_FONT,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  telemetryGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  telemetryCell: {
+    flex: 1,
+    gap: 2,
+  },
+  telemetryLabel: {
+    fontFamily: MONO_FONT,
+    fontSize: 9,
     fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  telemetryValue: {
+    fontFamily: MONO_FONT,
+    fontSize: 13.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  telemetryDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 24,
+    marginHorizontal: 10,
+  },
+  matrixWrap: {
+    marginTop: 4,
+  },
+  matrixRow: {
+    flexDirection: 'row',
+  },
+  matrixCell: {
+    flex: 1,
+    paddingVertical: 15,
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  matrixCellTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  matrixMetric: {
+    fontFamily: MONO_FONT,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  matrixCellBottom: {
+    gap: 1.5,
+  },
+  matrixTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  matrixSub: {
+    fontSize: 11.5,
   },
 });

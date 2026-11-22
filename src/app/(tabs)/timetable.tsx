@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  PanResponder,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,23 +14,38 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/Avatar';
-import { GlassCard } from '@/components/GlassCard';
+import { UsosTimetableActivity } from '@/api/types';
+import { AmbientBackdrop } from '@/components/AmbientBackdrop';
+import { DateWheelCarousel, DateWheelItem } from '@/components/DateWheelCarousel';
+import { GlassSurface } from '@/components/GlassSurface';
+import { ScheduleGapRow, ScheduleTimelineRow } from '@/components/ScheduleTimelineRow';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
 import { MONO_FONT } from '@/theme/theme';
-import { getNextClassHighlight } from '@/utils/timetableUtils';
+import {
+  DAY_NAMES_PL,
+  DAY_SHORT_PL,
+  formatDurationPl,
+  formatShortDatePl,
+  getGapMinutes,
+  getWeekDaysForOffset,
+  MONTHS_GENITIVE_PL,
+  MONTHS_NOMINATIVE_PL,
+  parseMinutes,
+  toLocalIsoDate,
+} from '@/utils/timetableUtils';
 
-const WEEKDAYS = [
-  { day: 1, short: 'Pon', full: 'Poniedziałek' },
-  { day: 2, short: 'Wt', full: 'Wtorek' },
-  { day: 3, short: 'Śr', full: 'Środa' },
-  { day: 4, short: 'Czw', full: 'Czwartek' },
-  { day: 5, short: 'Pt', full: 'Piątek' },
-  { day: 6, short: 'Sob', full: 'Sobota' },
-  { day: 7, short: 'Ndz', full: 'Niedziela' },
-];
+const DAYS_BACK = 21;
+const DAYS_FORWARD = 28;
+
+function getMondayTimestamp(date: Date): number {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const jsDay = d.getDay();
+  const diffToMon = jsDay === 0 ? -6 : 1 - jsDay;
+  d.setDate(d.getDate() + diffToMon);
+  return d.getTime();
+}
 
 export default function TimetableScreen() {
   const theme = useAppTheme();
@@ -38,348 +53,405 @@ export default function TimetableScreen() {
   const upcomingTimetable = useUsosStore((s) => s.upcomingTimetable);
   const timetableWeekOffset = useUsosStore((s) => s.timetableWeekOffset);
   const changeTimetableWeek = useUsosStore((s) => s.changeTimetableWeek);
-  const syncFromLiveApi = useUsosStore((s) => s.syncFromLiveApi);
   const isSyncing = useUsosStore((s) => s.isSyncing);
 
-  const effectiveUpcoming = useMemo(
-    () => (upcomingTimetable.length > 0 ? upcomingTimetable : timetable),
-    [upcomingTimetable, timetable]
-  );
-  const nextClassInfo = useMemo(
-    () => getNextClassHighlight(effectiveUpcoming),
-    [effectiveUpcoming]
-  );
-
-  const initialDay = useMemo(() => {
-    if (nextClassInfo) return nextClassInfo.activity.day_of_week;
-    const jsDay = new Date().getDay();
-    return jsDay === 0 ? 1 : jsDay > 5 ? 1 : jsDay;
-  }, [nextClassInfo]);
-
-  const [selectedDay, setSelectedDay] = useState<number>(initialDay);
+  const [now, setNow] = useState(() => new Date());
+  const todayIso = useMemo(() => toLocalIsoDate(now), [now]);
+  const [selectedDateIso, setSelectedDateIso] = useState<string>(() => toLocalIsoDate(new Date()));
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 
   useEffect(() => {
-    if (nextClassInfo) {
-      const currentDayHasClasses = timetable.some((t) => t.day_of_week === selectedDay);
-      if (!currentDayHasClasses) {
-        setSelectedDay(nextClassInfo.activity.day_of_week);
-      }
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const hapticTap = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync().catch(() => {});
     }
-  }, [nextClassInfo, timetable]);
+  };
 
-  const visibleDays = useMemo(() => {
-    const hasWeekend = timetable.some((t) => t.day_of_week >= 6);
-    return hasWeekend ? WEEKDAYS : WEEKDAYS.slice(0, 5);
-  }, [timetable]);
+  // Merge timetable (currently loaded week) + upcomingTimetable (14-day cache) by date without duplicates
+  const activitiesByDate = useMemo(() => {
+    const map = new Map<string, UsosTimetableActivity[]>();
+    const seen = new Set<string>();
 
-  const filteredActivities = useMemo(() => {
-    return timetable
-      .filter((item) => (viewMode === 'day' ? item.day_of_week === selectedDay : true))
-      .sort((a, b) => {
-        if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week;
-        return a.start_time.localeCompare(b.start_time);
+    const addItem = (item: UsosTimetableActivity) => {
+      if (!item.date) return;
+      const key = `${item.date}|${item.start_time}|${item.course_id}|${item.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const list = map.get(item.date) || [];
+      list.push(item);
+      map.set(item.date, list);
+    };
+
+    for (const item of timetable) addItem(item);
+    for (const item of upcomingTimetable) addItem(item);
+
+    for (const [, list] of map) {
+      list.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
+    return map;
+  }, [timetable, upcomingTimetable]);
+
+  // Continuous 50-day wheel range (-21 .. +28 around today)
+  const wheelDays = useMemo<DateWheelItem[]>(() => {
+    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentWeekMon = getMondayTimestamp(base);
+    const items: DateWheelItem[] = [];
+
+    for (let offset = -DAYS_BACK; offset <= DAYS_FORWARD; offset++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + offset);
+      const jsDay = d.getDay();
+      const isoDay = jsDay === 0 ? 7 : jsDay;
+      const dateIso = toLocalIsoDate(d);
+      const thisWeekMon = getMondayTimestamp(d);
+      const weekOffset = Math.round((thisWeekMon - currentWeekMon) / (7 * 86_400_000));
+      const count = activitiesByDate.get(dateIso)?.length || 0;
+
+      items.push({
+        dateIso,
+        dayOfWeek: isoDay,
+        dayNum: d.getDate(),
+        monthNum: d.getMonth() + 1,
+        yearNum: d.getFullYear(),
+        twoLetterPl: DAY_SHORT_PL[isoDay] || '',
+        fullPl: DAY_NAMES_PL[isoDay] || '',
+        isToday: dateIso === todayIso,
+        weekOffset,
+        classCount: count,
       });
-  }, [timetable, selectedDay, viewMode]);
+    }
+    return items;
+  }, [now, todayIso, activitiesByDate]);
 
-  const weekLabel = useMemo(() => {
-    const now = new Date();
-    const jsDay = now.getDay();
-    const diffToMonday = jsDay === 0 ? -6 : 1 - jsDay;
-    const monday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + diffToMonday + timetableWeekOffset * 7
+  const selectedDayItem = useMemo(
+    () => wheelDays.find((d) => d.dateIso === selectedDateIso) || wheelDays[DAYS_BACK],
+    [wheelDays, selectedDateIso]
+  );
+
+  const selectedIndex = useMemo(
+    () => Math.max(0, wheelDays.findIndex((d) => d.dateIso === selectedDayItem.dateIso)),
+    [wheelDays, selectedDayItem.dateIso]
+  );
+
+  const syncWeekIfNeeded = useCallback(
+    (targetWeekOffset: number) => {
+      if (targetWeekOffset === timetableWeekOffset) return;
+      if (targetWeekOffset === 0) {
+        changeTimetableWeek(0);
+      } else {
+        changeTimetableWeek(targetWeekOffset - timetableWeekOffset);
+      }
+    },
+    [timetableWeekOffset, changeTimetableWeek]
+  );
+
+  const handleSelectWheelDay = useCallback(
+    (item: DateWheelItem) => {
+      setSelectedDateIso(item.dateIso);
+      if (viewMode === 'week') setViewMode('day');
+      syncWeekIfNeeded(item.weekOffset);
+    },
+    [viewMode, syncWeekIfNeeded]
+  );
+
+  const handleJumpToday = () => {
+    hapticTap();
+    setSelectedDateIso(todayIso);
+    setViewMode('day');
+    syncWeekIfNeeded(0);
+  };
+
+  const dayActivities = useMemo(
+    () => activitiesByDate.get(selectedDayItem.dateIso) || [],
+    [activitiesByDate, selectedDayItem.dateIso]
+  );
+
+  const dayMetaSummary = useMemo(() => {
+    if (dayActivities.length === 0) return 'Wolne';
+    const totalMin = dayActivities.reduce(
+      (sum, act) => sum + Math.max(0, parseMinutes(act.end_time) - parseMinutes(act.start_time)),
+      0
     );
-    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const range = `${pad(monday.getDate())}.${pad(monday.getMonth() + 1)}–${pad(sunday.getDate())}.${pad(sunday.getMonth() + 1)}`;
+    const span = `${dayActivities[0].start_time}–${dayActivities[dayActivities.length - 1].end_time}`;
+    return `${span} · ${formatDurationPl(totalMin)}`;
+  }, [dayActivities]);
 
-    if (timetableWeekOffset === 0) return `TEN TYDZIEŃ (${range})`;
-    if (timetableWeekOffset === 1) return `NASTĘPNY (${range})`;
-    if (timetableWeekOffset === -1) return `POPRZEDNI (${range})`;
-    return `TYDZIEŃ ${timetableWeekOffset > 0 ? `+${timetableWeekOffset}` : timetableWeekOffset} (${range})`;
-  }, [timetableWeekOffset]);
+  const weekDays = useMemo(
+    () => getWeekDaysForOffset(selectedDayItem.weekOffset, now),
+    [selectedDayItem.weekOffset, now]
+  );
+
+  const weekGroups = useMemo(() => {
+    return weekDays
+      .map((cell) => ({
+        cell,
+        items: activitiesByDate.get(cell.dateIso) || [],
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [weekDays, activitiesByDate]);
+
+  const weekTotalCount = useMemo(
+    () => weekGroups.reduce((sum, g) => sum + g.items.length, 0),
+    [weekGroups]
+  );
+
+  const monthHeader = `${MONTHS_NOMINATIVE_PL[selectedDayItem.monthNum - 1].toUpperCase()} ${
+    selectedDayItem.yearNum
+  }`;
+
+  const isOnToday = selectedDayItem.isToday;
+
+  // Horizontal swipe gesture on the agenda body also steps the wheel carousel smoothly
+  const swipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_evt, gesture) =>
+          viewMode === 'day' &&
+          Math.abs(gesture.dx) > 30 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.6,
+        onPanResponderRelease: (_evt, gesture) => {
+          if (viewMode !== 'day') return;
+          if (gesture.dx < -45 && selectedIndex < wheelDays.length - 1) {
+            if (Platform.OS === 'ios') Haptics.selectionAsync().catch(() => {});
+            handleSelectWheelDay(wheelDays[selectedIndex + 1]);
+          } else if (gesture.dx > 45 && selectedIndex > 0) {
+            if (Platform.OS === 'ios') Haptics.selectionAsync().catch(() => {});
+            handleSelectWheelDay(wheelDays[selectedIndex - 1]);
+          }
+        },
+      }),
+    [viewMode, selectedIndex, wheelDays, handleSelectWheelDay]
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      <AmbientBackdrop variant="plan" />
+
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        {/* Header with Week Switcher */}
+        {/* Clean Spacious Header with solo "DZIŚ" button */}
         <View style={styles.header}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={[styles.monoOverline, { color: theme.textSecondary }]} numberOfLines={1}>
-              {weekLabel} • {timetable.length} ZAJĘĆ
-            </Text>
-            <Text style={[styles.title, { color: theme.text }]}>Plan zajęć</Text>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.monoOverline, { color: theme.textMuted }]}>{monthHeader}</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Plan</Text>
           </View>
 
-          <View style={styles.weekControls}>
-            <Pressable
-              onPress={() => changeTimetableWeek(-1)}
+          <Pressable
+            onPress={handleJumpToday}
+            accessibilityLabel="Przejdź do dzisiejszego dnia"
+            style={({ pressed }) => [
+              styles.todayPillBtn,
+              isOnToday
+                ? {
+                    backgroundColor: theme.primary,
+                    borderColor: theme.primary,
+                  }
+                : {
+                    backgroundColor: theme.primarySoft,
+                    borderColor: theme.separator,
+                  },
+              pressed && { opacity: 0.72 },
+            ]}>
+            <View
               style={[
-                styles.weekBtn,
-                { backgroundColor: theme.card, borderColor: theme.cardBorder },
-              ]}>
-              <Ionicons name="chevron-back" size={17} color={theme.text} />
-            </Pressable>
-            <Pressable
-              onPress={() => changeTimetableWeek(0)}
+                styles.todayPillDot,
+                {
+                  backgroundColor: isOnToday ? theme.primaryContrast : theme.textMuted,
+                },
+              ]}
+            />
+            <Text
               style={[
-                styles.weekBtn,
-                { backgroundColor: theme.primarySoft, borderColor: theme.cardBorder },
+                styles.todayPillText,
+                {
+                  color: isOnToday ? theme.primaryContrast : theme.textSecondary,
+                },
               ]}>
-              <Text style={[styles.todayBtnText, { color: theme.text }]}>DZIŚ</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => changeTimetableWeek(1)}
-              style={[
-                styles.weekBtn,
-                { backgroundColor: theme.card, borderColor: theme.cardBorder },
-              ]}>
-              <Ionicons name="chevron-forward" size={17} color={theme.text} />
-            </Pressable>
-          </View>
+              DZIŚ
+            </Text>
+          </Pressable>
         </View>
 
-        <View style={styles.controlsWrap}>
+        {/* iPhone Timer / Wheel-style Horizontal Date Carousel */}
+        <DateWheelCarousel
+          days={wheelDays}
+          selectedDateIso={selectedDayItem.dateIso}
+          onSelectDay={handleSelectWheelDay}
+        />
+
+        {/* Mode Switcher */}
+        <View style={styles.modeBar}>
           <SegmentedControl
             options={[
-              { label: 'Widok dnia', value: 'day' },
-              { label: 'Cały tydzień', value: 'week', badge: timetable.length },
+              { label: 'Dzień', value: 'day', badge: dayActivities.length },
+              { label: 'Tydzień', value: 'week', badge: weekTotalCount },
             ]}
             value={viewMode}
             onChange={setViewMode}
           />
-
-          {viewMode === 'day' && (
-            <View style={styles.daysRow}>
-              {visibleDays.map((d) => {
-                const isSelected = d.day === selectedDay;
-                const count = timetable.filter((t) => t.day_of_week === d.day).length;
-                return (
-                  <Pressable
-                    key={d.day}
-                    onPress={() => {
-                      if (Platform.OS === 'ios') {
-                        Haptics.selectionAsync().catch(() => {});
-                      }
-                      setSelectedDay(d.day);
-                    }}
-                    style={[
-                      styles.dayPill,
-                      {
-                        backgroundColor: isSelected ? theme.primary : theme.card,
-                        borderColor: isSelected ? theme.primary : theme.cardBorder,
-                      },
-                    ]}>
-                    <Text
-                      style={[
-                        styles.dayShort,
-                        { color: isSelected ? theme.primaryContrast : theme.text },
-                      ]}>
-                      {d.short}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.dayCount,
-                        {
-                          color: isSelected ? theme.primaryContrast : theme.textMuted,
-                        },
-                      ]}>
-                      {count > 0 ? `${count}` : '—'}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
         </View>
 
         {isSyncing && (
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={theme.text} />
             <Text style={[styles.syncText, { color: theme.textSecondary }]}>
-              Synchronizacja planu zajęć...
+              Synchronizacja rozkładu z USOS...
             </Text>
           </View>
         )}
 
+        {/* Swipeable Continuous Agenda */}
         <ScrollView
-          contentContainerStyle={styles.timelineList}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isSyncing}
-              onRefresh={syncFromLiveApi}
-              tintColor={theme.text}
-            />
-          }>
-          {nextClassInfo && (
-            <GlassCard
-              elevated
-              padding={14}
-              onPress={() => {
-                setSelectedDay(nextClassInfo.activity.day_of_week);
-                router.push(`/modal/course/${nextClassInfo.activity.course_id}`);
-              }}
-              style={styles.nextBannerCard}>
-              <View style={styles.nextBannerTop}>
-                <View style={styles.nextBannerLeft}>
-                  <View
-                    style={[
-                      styles.nextBannerDot,
-                      {
-                        backgroundColor: nextClassInfo.isOngoing
-                          ? theme.success
-                          : theme.accent,
-                      },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.nextBannerMono,
-                      {
-                        color: nextClassInfo.isOngoing ? theme.success : theme.accent,
-                      },
-                    ]}>
-                    {nextClassInfo.isOngoing ? 'TRWA TERAZ' : 'NAJBLIŻSZE ZAJĘCIA'}
+          {...swipeResponder.panHandlers}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          {viewMode === 'day' ? (
+            <>
+              <View style={[styles.daySummaryRow, { borderBottomColor: theme.separator }]}>
+                <View style={styles.daySummaryLeft}>
+                  <Text style={[styles.daySummaryTitle, { color: theme.text }]}>
+                    {selectedDayItem.fullPl}, {selectedDayItem.dayNum}{' '}
+                    {MONTHS_GENITIVE_PL[selectedDayItem.monthNum - 1]}
                   </Text>
+                  {selectedDayItem.isToday && (
+                    <View style={[styles.todayTag, { backgroundColor: theme.primarySoft }]}>
+                      <Text style={[styles.todayTagText, { color: theme.text }]}>DZIŚ</Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={[styles.nextBannerTime, { color: theme.text }]}>
-                  {nextClassInfo.statusBadge}
+                <Text style={[styles.daySummaryMeta, { color: theme.textMuted }]}>
+                  {dayMetaSummary}
                 </Text>
               </View>
-              <Text style={[styles.nextBannerTitle, { color: theme.text }]} numberOfLines={1}>
-                {nextClassInfo.activity.course_name.pl}
-              </Text>
-              <Text
-                style={[styles.nextBannerSub, { color: theme.textSecondary }]}
-                numberOfLines={1}>
-                {nextClassInfo.activity.class_type.pl} • Sala {nextClassInfo.activity.room_number} •{' '}
-                {nextClassInfo.activity.lecturer_name}
-              </Text>
-            </GlassCard>
-          )}
 
-          {filteredActivities.length === 0 ? (
-            <GlassCard style={styles.emptyCard}>
-              <Ionicons name="calendar-clear-outline" size={34} color={theme.textSecondary} />
+              {dayActivities.length === 0 ? (
+                <View style={styles.emptyBlock}>
+                  <Ionicons name="calendar-clear-outline" size={28} color={theme.textMuted} />
+                  <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                    Brak zajęć w tym dniu
+                  </Text>
+                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
+                    Przewiń karuzelę dat powyżej lub włącz podgląd całego tygodnia.
+                  </Text>
+                  <View style={styles.emptyActions}>
+                    <GlassSurface
+                      radius={999}
+                      interactive
+                      onPress={() => setViewMode('week')}
+                      contentStyle={styles.emptyGlassBtn}>
+                      <Text style={[styles.emptyBtnText, { color: theme.text }]}>
+                        Cały tydzień
+                      </Text>
+                    </GlassSurface>
+                    {!isOnToday && (
+                      <GlassSurface
+                        radius={999}
+                        interactive
+                        onPress={handleJumpToday}
+                        contentStyle={styles.emptyGlassBtn}>
+                        <Text style={[styles.emptyBtnText, { color: theme.text }]}>
+                          Wróć do dziś
+                        </Text>
+                      </GlassSurface>
+                    )}
+                  </View>
+                </View>
+              ) : (
+                <View>
+                  {dayActivities.map((item, idx) => {
+                    const prev = idx > 0 ? dayActivities[idx - 1] : null;
+                    const gapMin = prev ? getGapMinutes(prev, item) : 0;
+                    return (
+                      <React.Fragment key={item.id}>
+                        {gapMin >= 20 && <ScheduleGapRow minutes={gapMin} />}
+                        <ScheduleTimelineRow
+                          activity={item}
+                          now={now}
+                          showDivider={idx < dayActivities.length - 1}
+                          onPress={() => router.push(`/modal/course/${item.course_id}`)}
+                        />
+                      </React.Fragment>
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          ) : weekGroups.length === 0 ? (
+            <View style={styles.emptyBlock}>
+              <Ionicons name="calendar-outline" size={28} color={theme.textMuted} />
               <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                Brak zaplanowanych zajęć
+                Brak zajęć w tym tygodniu
               </Text>
               <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                W wybranym dniu nie ma wpisanych zajęć w rozkładzie USOS. Możesz przełączyć tydzień
-                strzałkami na górze lub włączyć widok całego tygodnia.
+                Przewiń karuzelę dat na inny tydzień — dane aktualizują się automatycznie.
               </Text>
-            </GlassCard>
+              {!isOnToday && (
+                <GlassSurface
+                  radius={999}
+                  interactive
+                  onPress={handleJumpToday}
+                  contentStyle={styles.emptyGlassBtn}>
+                  <Text style={[styles.emptyBtnText, { color: theme.text }]}>
+                    Wróć do bieżącego tygodnia
+                  </Text>
+                </GlassSurface>
+              )}
+            </View>
           ) : (
-            filteredActivities.map((item, index) => {
-              const dayMeta = WEEKDAYS.find((d) => d.day === item.day_of_week);
-              const showDayBanner =
-                viewMode === 'week' &&
-                (index === 0 ||
-                  filteredActivities[index - 1].day_of_week !== item.day_of_week);
-
-              return (
-                <View key={item.id}>
-                  {showDayBanner && dayMeta && (
-                    <Text style={[styles.weekDayTitle, { color: theme.textSecondary }]}>
-                      {dayMeta.full.toUpperCase()} // {item.date}
-                    </Text>
-                  )}
-
-                  <GlassCard
-                    onPress={() => router.push(`/modal/course/${item.course_id}`)}
-                    style={styles.activityCard}>
-                    {/* Time + Room + Class Type Row (Concept B Tabular Header) */}
-                    <View style={styles.cardTopRow}>
-                      <View
-                        style={[
-                          styles.timePill,
-                          {
-                            backgroundColor: theme.bgSecondary,
-                            borderColor: theme.cardBorder,
-                          },
-                        ]}>
-                        <Text style={[styles.timeBadge, { color: theme.text }]}>
-                          {item.start_time} - {item.end_time}
-                        </Text>
-                      </View>
-
-                      <View style={styles.rightPills}>
-                        {item.room_number ? (
-                          <View
-                            style={[
-                              styles.roomBadge,
-                              {
-                                backgroundColor: theme.primarySoft,
-                                borderColor: theme.cardBorder,
-                              },
-                            ]}>
-                            <Text style={[styles.roomBadgeText, { color: theme.text }]}>
-                              S. {item.room_number}
-                            </Text>
-                          </View>
-                        ) : null}
-
-                        <View
-                          style={[
-                            styles.typePill,
-                            {
-                              backgroundColor: theme.bgSecondary,
-                              borderColor: theme.cardBorder,
-                            },
-                          ]}>
-                          <Text style={[styles.typeLabel, { color: theme.textSecondary }]}>
-                            {item.class_type.pl} • GR. {item.group_number}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Subject Title */}
-                    <Text style={[styles.courseTitle, { color: theme.text }]}>
-                      {item.course_name.pl}
-                    </Text>
-
-                    {/* Building Address */}
-                    <View style={styles.metaLine}>
-                      <Ionicons name="location-outline" size={14} color={theme.textSecondary} />
+            <View>
+              {weekGroups.map(({ cell, items }) => (
+                <View key={cell.dateIso} style={styles.weekGroup}>
+                  <View style={[styles.weekGroupHeader, { borderBottomColor: theme.separator }]}>
+                    <View style={styles.weekGroupHeaderLeft}>
                       <Text
-                        style={[styles.metaValue, { color: theme.textSecondary }]}
-                        numberOfLines={1}>
-                        {item.building_name.pl}
+                        style={[
+                          styles.weekGroupTitle,
+                          { color: cell.isToday ? theme.text : theme.textSecondary },
+                        ]}>
+                        {cell.fullPl.toUpperCase()}
                       </Text>
+                      <Text style={[styles.weekGroupDate, { color: theme.textMuted }]}>
+                        {formatShortDatePl(cell.dateIso)}
+                      </Text>
+                      {cell.isToday && (
+                        <View style={[styles.todayTag, { backgroundColor: theme.primarySoft }]}>
+                          <Text style={[styles.todayTagText, { color: theme.text }]}>DZIŚ</Text>
+                        </View>
+                      )}
                     </View>
+                    <Text style={[styles.weekGroupCount, { color: theme.textMuted }]}>
+                      {items.length} zaj.
+                    </Text>
+                  </View>
 
-                    {/* Lecturer Row with Photo Avatar */}
-                    <View
-                      style={[
-                        styles.teacherRow,
-                        {
-                          backgroundColor: theme.bgSecondary,
-                          borderColor: theme.cardBorder,
-                        },
-                      ]}>
-                      <Avatar name={item.lecturer_name} uri={item.lecturer_photo} size={32} />
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[styles.teacherName, { color: theme.text }]}
-                          numberOfLines={1}>
-                          {item.lecturer_name}
-                        </Text>
-                        <Text
-                          style={[styles.teacherSub, { color: theme.textSecondary }]}
-                          numberOfLines={1}>
-                          Prowadzący • Karta przedmiotu i oceny
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={15} color={theme.textMuted} />
-                    </View>
-                  </GlassCard>
+                  {items.map((item, idx) => {
+                    const prev = idx > 0 ? items[idx - 1] : null;
+                    const gapMin = prev ? getGapMinutes(prev, item) : 0;
+                    return (
+                      <React.Fragment key={item.id}>
+                        {gapMin >= 20 && <ScheduleGapRow minutes={gapMin} />}
+                        <ScheduleTimelineRow
+                          activity={item}
+                          now={now}
+                          compact
+                          showDivider={idx < items.length - 1}
+                          onPress={() => router.push(`/modal/course/${item.course_id}`)}
+                        />
+                      </React.Fragment>
+                    );
+                  })}
                 </View>
-              );
-            })
+              ))}
+            </View>
+          )}
+
+          {dayActivities.length > 0 && viewMode === 'day' && (
+            <Text style={[styles.swipeHint, { color: theme.textMuted }]}>
+              Kręć karuzelą dat lub przesuwaj w bok · {DAY_NAMES_PL[selectedDayItem.dayOfWeek]}
+            </Text>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -393,224 +465,170 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 0,
   },
   monoOverline: {
     fontFamily: MONO_FONT,
-    fontSize: 10,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    marginTop: 1,
+  },
+  todayPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  todayPillDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  todayPillText: {
+    fontFamily: MONO_FONT,
+    fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.7,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.6,
-    marginTop: 2,
-  },
-  weekControls: {
-    flexDirection: 'row',
-    flexShrink: 0,
-    gap: 6,
-  },
-  weekBtn: {
-    height: 36,
-    paddingHorizontal: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  todayBtnText: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  controlsWrap: {
-    paddingHorizontal: 16,
-    gap: 10,
-    marginBottom: 8,
-  },
-  daysRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dayPill: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 2,
-  },
-  dayShort: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  dayCount: {
-    fontFamily: MONO_FONT,
-    fontSize: 10,
-    fontWeight: '800',
+  modeBar: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   syncText: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
   },
-  timelineList: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 118,
-    gap: 10,
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 112,
   },
-  weekDayTitle: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-    marginTop: 8,
-    marginBottom: 6,
-  },
-  activityCard: {
-    gap: 9,
-  },
-  cardTopRow: {
+  daySummaryRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 8,
   },
-  timePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  timeBadge: {
-    fontFamily: MONO_FONT,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  rightPills: {
+  daySummaryLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
+    flexShrink: 1,
   },
-  roomBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 9,
-    borderWidth: 1,
-  },
-  roomBadgeText: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  typePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 9,
-    borderWidth: 1,
-  },
-  typeLabel: {
-    fontFamily: MONO_FONT,
-    fontSize: 10,
+  daySummaryTitle: {
+    fontSize: 14,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  courseTitle: {
-    fontSize: 16,
+  daySummaryMeta: {
+    fontFamily: MONO_FONT,
+    fontSize: 10.5,
+    fontWeight: '600',
+    flexShrink: 0,
+  },
+  todayTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 5,
+  },
+  todayTagText: {
+    fontFamily: MONO_FONT,
+    fontSize: 9,
     fontWeight: '800',
-    lineHeight: 21,
+    letterSpacing: 0.5,
   },
-  metaLine: {
-    flexDirection: 'row',
+  emptyBlock: {
     alignItems: 'center',
-    gap: 6,
-  },
-  metaValue: {
-    fontSize: 12,
-    flex: 1,
-  },
-  teacherRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 9,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginTop: 2,
-  },
-  teacherName: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  teacherSub: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 54,
     gap: 8,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15.5,
+    fontWeight: '700',
+    marginTop: 4,
   },
   emptySub: {
     fontSize: 13,
     textAlign: 'center',
+    maxWidth: 270,
     lineHeight: 19,
   },
-  nextBannerCard: {
-    gap: 4,
+  emptyActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
   },
-  nextBannerTop: {
+  emptyGlassBtn: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  emptyBtnText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  weekGroup: {
+    marginBottom: 12,
+  },
+  weekGroupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  nextBannerLeft: {
+  weekGroupHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
   },
-  nextBannerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  nextBannerMono: {
+  weekGroupTitle: {
     fontFamily: MONO_FONT,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
-  nextBannerTime: {
+  weekGroupDate: {
     fontFamily: MONO_FONT,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  nextBannerTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  nextBannerSub: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+  },
+  weekGroupCount: {
+    fontFamily: MONO_FONT,
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  swipeHint: {
+    fontFamily: MONO_FONT,
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 22,
+    opacity: 0.7,
   },
 });

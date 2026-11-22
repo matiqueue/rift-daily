@@ -1,51 +1,74 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Keyboard,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackdrop } from '@/components/AmbientBackdrop';
 import { Avatar } from '@/components/Avatar';
-import { GlassCard } from '@/components/GlassCard';
+import { GlassSurface } from '@/components/GlassSurface';
+import { GlobalSearchModal } from '@/components/GlobalSearchModal';
 import { GradeBadge } from '@/components/GradeBadge';
-import { UniversityIcon } from '@/components/UniversityIcon';
+import {
+  EditorialFade,
+  HairlineDraw,
+  LivePulseDot,
+  ScrambleText,
+  TypewriterText,
+} from '@/components/KineticText';
+import { ListRow } from '@/components/ListRow';
+import { MetricStrip } from '@/components/MetricStrip';
+import { ScheduleGapRow, ScheduleTimelineRow } from '@/components/ScheduleTimelineRow';
+import { SectionHeader } from '@/components/SectionHeader';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUsosStore } from '@/store/useUsosStore';
-import { MONO_FONT, ThemeMode } from '@/theme/theme';
-import { getNextClassHighlight, toLocalIsoDate } from '@/utils/timetableUtils';
+import { MONO_FONT } from '@/theme/theme';
+import {
+  formatDurationPl,
+  formatPolishDateHeader,
+  formatShortDatePl,
+  getClassTypeShort,
+  getGapMinutes,
+  getNextClassHighlight,
+  toLocalIsoDate,
+} from '@/utils/timetableUtils';
 
-export default function DashboardScreen() {
+export default function TodayJournalScreen() {
   const theme = useAppTheme();
   const user = useUsosStore((s) => s.user);
   const selectedInstallation = useUsosStore((s) => s.selectedInstallation);
-  const isSyncing = useUsosStore((s) => s.isSyncing);
-  const syncFromLiveApi = useUsosStore((s) => s.syncFromLiveApi);
   const timetable = useUsosStore((s) => s.timetable);
   const upcomingTimetable = useUsosStore((s) => s.upcomingTimetable);
   const grades = useUsosStore((s) => s.grades);
   const courses = useUsosStore((s) => s.courses);
-  const staff = useUsosStore((s) => s.staff);
+  const exams = useUsosStore((s) => s.exams);
   const payments = useUsosStore((s) => s.payments);
-  const setThemeMode = useUsosStore((s) => s.setThemeMode);
   const lockSession = useUsosStore((s) => s.lockSession);
   const securityEnabled = useUsosStore((s) => s.securityEnabled);
 
-  const [globalSearch, setGlobalSearch] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchCategory, setSearchCategory] = useState<
-    'all' | 'teachers' | 'classes' | 'courses' | 'grades'
-  >('all');
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const hapticTap = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync().catch(() => {});
+    }
+  };
+
+  const dateHeader = useMemo(() => formatPolishDateHeader(now), [now]);
 
   const weightedGpa = useMemo(() => {
     let weightedSum = 0;
@@ -80,1071 +103,533 @@ export default function DashboardScreen() {
   );
 
   const nextClassInfo = useMemo(
-    () => getNextClassHighlight(effectiveUpcoming),
-    [effectiveUpcoming]
+    () => getNextClassHighlight(effectiveUpcoming, now),
+    [effectiveUpcoming, now]
   );
 
-  const scheduleRows = useMemo(() => {
+  const { agendaItems, agendaIsToday, agendaDayLabel } = useMemo(() => {
+    const todayIso = toLocalIsoDate(now);
+    const todayItems = effectiveUpcoming
+      .filter((t) => t.date === todayIso)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    if (todayItems.length > 0) {
+      return {
+        agendaItems: todayItems,
+        agendaIsToday: true,
+        agendaDayLabel: 'DZISIEJSZY PLAN',
+      };
+    }
+
     if (nextClassInfo && nextClassInfo.daySchedule.length > 0) {
-      return nextClassInfo.daySchedule.slice(0, 6);
+      const shortDate = formatShortDatePl(nextClassInfo.activity.date);
+      return {
+        agendaItems: nextClassInfo.daySchedule,
+        agendaIsToday: nextClassInfo.isToday,
+        agendaDayLabel: nextClassInfo.isToday
+          ? 'DZISIEJSZY PLAN'
+          : `NAJBLIŻSZY DZIEŃ · ${nextClassInfo.dayNamePl.toUpperCase()}${
+              shortDate ? ` ${shortDate}` : ''
+            }`,
+      };
     }
-    const todayIso = toLocalIsoDate(new Date());
-    const todayClasses = effectiveUpcoming.filter((t) => t.date === todayIso);
-    if (todayClasses.length > 0) return todayClasses.slice(0, 6);
-    return effectiveUpcoming.slice(0, 6);
-  }, [effectiveUpcoming, nextClassInfo]);
-
-  const nextActivity = nextClassInfo?.activity || scheduleRows[0] || null;
-  const recentGrades = useMemo(() => grades.slice(0, 5), [grades]);
-  const myTeachers = useMemo(
-    () =>
-      [...staff]
-        .sort((a, b) => {
-          const aHas = Boolean(a.photo_url && a.photo_url.startsWith('http'));
-          const bHas = Boolean(b.photo_url && b.photo_url.startsWith('http'));
-          if (aHas !== bHas) return Number(bHas) - Number(aHas);
-          return a.name.localeCompare(b.name, 'pl');
-        })
-        .slice(0, 8),
-    [staff]
-  );
-
-  const toggleLightDark = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.selectionAsync().catch(() => {});
-    }
-    const next: ThemeMode = theme.isDark ? 'light' : 'dark';
-    setThemeMode(next);
-  };
-
-  const quickModules = useMemo(
-    () => [
-      {
-        label: 'mLegitymacja',
-        icon: 'id-card-outline' as const,
-        slug: 'mcard',
-        color: theme.accent,
-      },
-      {
-        label: 'Wykładowcy',
-        icon: 'people-outline' as const,
-        slug: 'staff',
-        color: theme.purple,
-      },
-      {
-        label: 'Egzaminy',
-        icon: 'calendar-clear-outline' as const,
-        slug: 'exams',
-        color: theme.success,
-      },
-      {
-        label: 'Płatności',
-        icon: 'wallet-outline' as const,
-        slug: 'payments',
-        color: theme.warning,
-      },
-      {
-        label: 'Ankiety',
-        icon: 'chatbox-ellipses-outline' as const,
-        slug: 'surveys',
-        color: theme.cyan,
-      },
-      {
-        label: 'Budynki',
-        icon: 'map-outline' as const,
-        slug: 'buildings',
-        color: '#EC4899',
-      },
-      {
-        label: 'Rejestracje',
-        icon: 'checkbox-outline' as const,
-        slug: 'registrations',
-        color: theme.indigo,
-      },
-      {
-        label: 'Dyplom APD',
-        icon: 'ribbon-outline' as const,
-        slug: 'thesis',
-        color: '#14B8A6',
-      },
-    ],
-    [theme]
-  );
-
-  const sortedAllStaff = useMemo(
-    () =>
-      [...staff].sort((a, b) => {
-        const aHas = Boolean(a.photo_url && a.photo_url.startsWith('http'));
-        const bHas = Boolean(b.photo_url && b.photo_url.startsWith('http'));
-        if (aHas !== bHas) return Number(bHas) - Number(aHas);
-        return a.name.localeCompare(b.name, 'pl');
-      }),
-    [staff]
-  );
-
-  const searchResults = useMemo(() => {
-    const q = globalSearch.trim().toLowerCase();
-    if (!q && !isSearchOpen) return null;
-
-    const dedupeBy = <T,>(arr: T[], getKey: (item: T) => string): T[] => {
-      const seen = new Set<string>();
-      const out: T[] = [];
-      for (const item of arr) {
-        const k = getKey(item);
-        if (seen.has(k)) continue;
-        seen.add(k);
-        out.push(item);
-      }
-      return out;
-    };
-
-    const matchedCourses =
-      searchCategory === 'all' || searchCategory === 'courses'
-        ? dedupeBy(
-            q
-              ? courses.filter(
-                  (c) =>
-                    c.course_name.pl.toLowerCase().includes(q) ||
-                    c.course_id.toLowerCase().includes(q) ||
-                    c.coordinator.toLowerCase().includes(q)
-                )
-              : courses,
-            (c) => c.course_id
-          ).slice(0, 6)
-        : [];
-
-    const matchedTeachers =
-      searchCategory === 'all' || searchCategory === 'teachers'
-        ? dedupeBy(
-            q
-              ? sortedAllStaff.filter(
-                  (s) =>
-                    s.name.toLowerCase().includes(q) ||
-                    s.titles.toLowerCase().includes(q) ||
-                    s.room.toLowerCase().includes(q) ||
-                    (s.email || '').toLowerCase().includes(q) ||
-                    (s.courses_taught || []).some((ct) => ct.toLowerCase().includes(q))
-                )
-              : sortedAllStaff,
-            (s) => s.id
-          ).slice(0, 6)
-        : [];
-
-    const matchedClasses =
-      searchCategory === 'all' || searchCategory === 'classes'
-        ? dedupeBy(
-            q
-              ? timetable.filter(
-                  (t) =>
-                    (t.course_name.pl || '').toLowerCase().includes(q) ||
-                    (t.room_number || '').toLowerCase().includes(q) ||
-                    (t.lecturer_name || '').toLowerCase().includes(q)
-                )
-              : scheduleRows,
-            (act) => `${act.course_name.pl}|${act.day_of_week}|${act.start_time}`
-          ).slice(0, 6)
-        : [];
-
-    const matchedGrades =
-      searchCategory === 'all' || searchCategory === 'grades'
-        ? dedupeBy(
-            q
-              ? grades.filter(
-                  (g) =>
-                    g.course_name.pl.toLowerCase().includes(q) ||
-                    g.author_name.toLowerCase().includes(q) ||
-                    g.value_symbol.toLowerCase().includes(q)
-                )
-              : grades,
-            (g) => g.id
-          ).slice(0, 5)
-        : [];
-
-    const matchedModules =
-      searchCategory === 'all' && q
-        ? quickModules.filter((m) => m.label.toLowerCase().includes(q))
-        : [];
 
     return {
-      hasQuery: q.length > 0,
-      courses: matchedCourses,
-      teachers: matchedTeachers,
-      classes: matchedClasses,
-      grades: matchedGrades,
-      modules: matchedModules,
-      total:
-        matchedCourses.length +
-        matchedTeachers.length +
-        matchedClasses.length +
-        matchedGrades.length +
-        matchedModules.length,
+      agendaItems: [],
+      agendaIsToday: true,
+      agendaDayLabel: 'DZISIEJSZY PLAN',
     };
-  }, [
-    globalSearch,
-    isSearchOpen,
-    searchCategory,
-    courses,
-    sortedAllStaff,
-    timetable,
-    scheduleRows,
-    grades,
-    quickModules,
-  ]);
+  }, [effectiveUpcoming, nextClassInfo, now]);
 
   const unpaidPayments = useMemo(
     () => payments.filter((p) => p.status === 'unpaid' && p.amount > 0),
     [payments]
   );
 
+  const totalUnpaidAmount = useMemo(
+    () => unpaidPayments.reduce((sum, p) => sum + p.amount, 0),
+    [unpaidPayments]
+  );
+
+  const upcomingExams = useMemo(() => {
+    const todayIso = toLocalIsoDate(now);
+    return [...exams]
+      .filter((e) => !e.date || e.date >= todayIso)
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      .slice(0, 1);
+  }, [exams, now]);
+
+  const recentGrades = useMemo(
+    () => grades.slice(0, upcomingExams.length > 0 ? 3 : 4),
+    [grades, upcomingExams.length]
+  );
+
+  const quickPills = useMemo(
+    () => [
+      { label: 'mLegitymacja', icon: 'id-card-outline' as const, slug: 'mcard', alert: false },
+      {
+        label: 'Egzaminy',
+        icon: 'calendar-clear-outline' as const,
+        slug: 'exams',
+        alert: upcomingExams.length > 0,
+      },
+      {
+        label: 'Płatności',
+        icon: 'wallet-outline' as const,
+        slug: 'payments',
+        alert: unpaidPayments.length > 0,
+      },
+      { label: 'Kadra', icon: 'people-outline' as const, slug: 'staff', alert: false },
+    ],
+    [upcomingExams.length, unpaidPayments.length]
+  );
+
+  const spotlightAfterGap = useMemo(() => {
+    if (!nextClassInfo?.afterActivity) return 0;
+    return getGapMinutes(nextClassInfo.activity, nextClassInfo.afterActivity);
+  }, [nextClassInfo]);
+
+  const headerTagLine = `${dateHeader.shortTag} · ${selectedInstallation.shortName}`;
+
+  const dynamicBrief = useMemo(() => {
+    if (nextClassInfo?.isOngoing) {
+      return `Trwa teraz · ${nextClassInfo.countdownLabel.toLowerCase()}`;
+    }
+    if (agendaIsToday && agendaItems.length > 0) {
+      const span = `${agendaItems[0].start_time}–${agendaItems[agendaItems.length - 1].end_time}`;
+      return `${agendaItems.length} zajęcia dziś · ${span}`;
+    }
+    if (nextClassInfo) {
+      return `Dziś wolne · następne w ${nextClassInfo.dayNamePl.toLowerCase()} o ${nextClassInfo.activity.start_time}`;
+    }
+    return 'Brak zaplanowanych zajęć w najbliższych dniach';
+  }, [nextClassInfo, agendaIsToday, agendaItems]);
+
   return (
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
+      <AmbientBackdrop variant="today" />
+
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={isSyncing}
-              onRefresh={syncFromLiveApi}
-              tintColor={theme.accent}
+        {/* STICKY TOP HEADER ("Cześć, Szymon" pinned cleanly above scroll) */}
+        <View style={[styles.stickyHeader, { borderBottomColor: theme.separator }]}>
+          <View style={styles.topUtilityBar}>
+            <TypewriterText
+              text={headerTagLine}
+              speedMs={20}
+              startDelayMs={40}
+              style={[styles.dateMono, { color: theme.textMuted }]}
+              numberOfLines={1}
             />
-          }>
-          {/* 1. TOP GLOBAL SEARCH BAR ABOVE PROFILE CARD */}
-          <Animated.View
-            entering={FadeInDown.duration(260)}
-            style={[
-              styles.topSearchBar,
-              {
-                backgroundColor: theme.cardElevated,
-                borderColor:
-                  isSearchOpen || globalSearch
-                    ? theme.accent
-                    : theme.isDark
-                      ? 'rgba(255,255,255,0.20)'
-                      : 'rgba(15,23,42,0.16)',
-                borderWidth: 1.5,
-              },
-            ]}>
-            <View style={[styles.searchIconBadge, { backgroundColor: theme.accentSoft }]}>
-              <Ionicons name="search" size={18} color={theme.accent} />
-            </View>
-            <TextInput
-              value={globalSearch}
-              onFocus={() => setIsSearchOpen(true)}
-              onChangeText={(txt) => {
-                setGlobalSearch(txt);
-                if (!isSearchOpen) setIsSearchOpen(true);
-              }}
-              placeholder="Szukaj nauczycieli, zajęć, ocen, przedmiotów..."
-              placeholderTextColor={theme.textSecondary}
-              style={[styles.topSearchInput, { color: theme.text }]}
-            />
-            {isSearchOpen || globalSearch.length > 0 ? (
+
+            <View style={styles.headerActions}>
+              <GlassSurface
+                radius={17}
+                interactive
+                accessibilityLabel="Szukaj w dzienniku"
+                onPress={() => setSearchVisible(true)}
+                contentStyle={styles.glassIconBtn}>
+                <Ionicons name="search" size={15} color={theme.text} />
+              </GlassSurface>
+
+              <GlassSurface
+                radius={17}
+                interactive
+                accessibilityLabel="Ustawienia"
+                onPress={() =>
+                  router.push({ pathname: '/(tabs)/more', params: { section: 'settings' } })
+                }
+                contentStyle={styles.glassIconBtn}>
+                <Ionicons name="settings-outline" size={15} color={theme.textSecondary} />
+              </GlassSurface>
+
+              {securityEnabled && (
+                <GlassSurface
+                  radius={17}
+                  interactive
+                  accessibilityLabel="Zablokuj aplikację"
+                  onPress={lockSession}
+                  contentStyle={styles.glassIconBtn}>
+                  <Ionicons name="lock-closed-outline" size={14} color={theme.textSecondary} />
+                </GlassSurface>
+              )}
+
               <Pressable
                 onPress={() => {
-                  setGlobalSearch('');
-                  setIsSearchOpen(false);
-                  setSearchCategory('all');
-                  Keyboard.dismiss();
-                }}>
-                <Ionicons name="close-circle" size={21} color={theme.textMuted} />
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={() => setIsSearchOpen(true)}
-                style={[styles.kbdPill, { backgroundColor: theme.accentSoft }]}>
-                <Text style={[styles.kbdText, { color: theme.accent }]}>SZUKAJ</Text>
-              </Pressable>
-            )}
-          </Animated.View>
-
-          {/* Animated Search Hints & Results Dropdown */}
-          {searchResults && (
-            <Animated.View entering={FadeInDown.duration(220)}>
-              <GlassCard elevated padding={14} style={styles.searchDropdownCard}>
-                <View style={styles.cardHeaderRow}>
-                  <Text style={[styles.cardHeaderMono, { color: theme.accent }]}>
-                    {searchResults.hasQuery || searchCategory !== 'all'
-                      ? `WYNIKI (${searchResults.total})`
-                      : 'SZYBKIE KATEGORIE WYSZUKIWANIA'}
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      setGlobalSearch('');
-                      setIsSearchOpen(false);
-                      setSearchCategory('all');
-                      Keyboard.dismiss();
-                    }}>
-                    <Text style={[styles.seeAllLink, { color: theme.textSecondary }]}>Zamknij</Text>
-                  </Pressable>
-                </View>
-
-                {/* Clickable Category Filter Pills (shown when a category is active or user is typing) */}
-                {(searchCategory !== 'all' || searchResults.hasQuery) && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.hintChipsRow}>
-                    {(
-                      [
-                        { id: 'all', label: 'Wszystko', icon: 'apps-outline' as const },
-                        { id: 'teachers', label: 'Nauczyciele', icon: 'people-outline' as const },
-                        { id: 'classes', label: 'Zajęcia', icon: 'calendar-outline' as const },
-                        { id: 'courses', label: 'Przedmioty', icon: 'book-outline' as const },
-                        { id: 'grades', label: 'Oceny', icon: 'ribbon-outline' as const },
-                      ] as const
-                    ).map((cat) => {
-                      const active = searchCategory === cat.id;
-                      return (
-                        <Pressable
-                          key={cat.id}
-                          onPress={() => {
-                            if (Platform.OS === 'ios') {
-                              Haptics.selectionAsync().catch(() => {});
-                            }
-                            setSearchCategory(cat.id);
-                          }}
-                          style={[
-                            styles.hintChip,
-                            {
-                              backgroundColor: active ? theme.accent : theme.bgSecondary,
-                              borderColor: active ? theme.accent : theme.cardBorder,
-                            },
-                          ]}>
-                          <Ionicons
-                            name={cat.icon}
-                            size={14}
-                            color={active ? theme.primaryContrast : theme.accent}
-                          />
-                          <Text
-                            style={[
-                              styles.hintChipText,
-                              { color: active ? theme.primaryContrast : theme.text },
-                            ]}>
-                            {cat.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-
-                {!searchResults.hasQuery && searchCategory === 'all' ? (
-                  <View style={styles.quickHintGrid}>
-                    <Pressable
-                      onPress={() => setSearchCategory('teachers')}
-                      style={[
-                        styles.quickHintTile,
-                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
-                      ]}>
-                      <Ionicons name="people-outline" size={18} color={theme.purple} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
-                          Nauczyciele ({staff.length})
-                        </Text>
-                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
-                          Pokaż listę i maile
-                        </Text>
-                      </View>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setSearchCategory('classes')}
-                      style={[
-                        styles.quickHintTile,
-                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
-                      ]}>
-                      <Ionicons name="calendar-outline" size={18} color={theme.accent} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
-                          Zajęcia ({scheduleRows.length})
-                        </Text>
-                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
-                          Najbliższy plan
-                        </Text>
-                      </View>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setSearchCategory('courses')}
-                      style={[
-                        styles.quickHintTile,
-                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
-                      ]}>
-                      <Ionicons name="book-outline" size={18} color={theme.success} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
-                          Przedmioty ({courses.length})
-                        </Text>
-                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
-                          Sylabusy i grupy
-                        </Text>
-                      </View>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setSearchCategory('grades')}
-                      style={[
-                        styles.quickHintTile,
-                        { backgroundColor: theme.bgSecondary, borderColor: theme.cardBorder },
-                      ]}>
-                      <Ionicons name="ribbon-outline" size={18} color={theme.warning} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.quickHintTitle, { color: theme.text }]}>
-                          Oceny ({grades.length})
-                        </Text>
-                        <Text style={[styles.quickHintSub, { color: theme.textSecondary }]}>
-                          Protokoły ocen
-                        </Text>
-                      </View>
-                    </Pressable>
-                  </View>
-                ) : searchResults.total === 0 ? (
-                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                    Brak wyników{searchResults.hasQuery ? ` dla „${globalSearch}”` : ''} w wybranej
-                    kategorii.
-                  </Text>
-                ) : (
-                  <View style={{ gap: 8 }}>
-                    {searchResults.teachers.map((t) => (
-                      <Pressable
-                        key={`sr-t-${t.id}`}
-                        onPress={() => {
-                          setGlobalSearch('');
-                          setIsSearchOpen(false);
-                          router.push('/modal/module/staff');
-                        }}
-                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
-                        <Avatar name={t.name} uri={t.photo_url} size={36} />
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[styles.tabularSubject, { color: theme.text }]}
-                            numberOfLines={1}>
-                            {t.titles} {t.name}
-                          </Text>
-                          <Text
-                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
-                            numberOfLines={1}>
-                            {t.email && t.email.includes('@')
-                              ? t.email
-                              : `Wykładowca • ${t.room}`}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      </Pressable>
-                    ))}
-
-                    {searchResults.classes.map((act) => (
-                      <Pressable
-                        key={`sr-cl-${act.id}`}
-                        onPress={() => {
-                          setGlobalSearch('');
-                          setIsSearchOpen(false);
-                          router.push('/(tabs)/timetable');
-                        }}
-                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
-                        <View
-                          style={[
-                            styles.searchMiniTimePill,
-                            { backgroundColor: theme.accentSoft },
-                          ]}>
-                          <Text style={[styles.searchMiniTimeText, { color: theme.accent }]}>
-                            {act.start_time}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[styles.tabularSubject, { color: theme.text }]}
-                            numberOfLines={1}>
-                            {act.course_name.pl}
-                          </Text>
-                          <Text
-                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
-                            numberOfLines={1}>
-                            {act.class_type.pl} • Sala {act.room_number} • {act.lecturer_name}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      </Pressable>
-                    ))}
-
-                    {searchResults.courses.map((c) => (
-                      <Pressable
-                        key={`sr-c-${c.course_id}`}
-                        onPress={() => {
-                          setGlobalSearch('');
-                          setIsSearchOpen(false);
-                          router.push(`/modal/course/${c.course_id}`);
-                        }}
-                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
-                        <Avatar name={c.coordinator} uri={c.coordinator_photo} size={36} />
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[styles.tabularSubject, { color: theme.text }]}
-                            numberOfLines={1}>
-                            {c.course_name.pl}
-                          </Text>
-                          <Text
-                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
-                            numberOfLines={1}>
-                            Przedmiot • {c.coordinator}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      </Pressable>
-                    ))}
-
-                    {searchResults.grades.map((g) => (
-                      <Pressable
-                        key={`sr-g-${g.id}`}
-                        onPress={() => {
-                          setGlobalSearch('');
-                          setIsSearchOpen(false);
-                          router.push(`/modal/course/${g.course_id}`);
-                        }}
-                        style={[styles.searchHitRow, { borderTopColor: theme.separator }]}>
-                        <GradeBadge symbol={g.value_symbol} size="sm" />
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={[styles.tabularSubject, { color: theme.text }]}
-                            numberOfLines={1}>
-                            {g.course_name.pl}
-                          </Text>
-                          <Text
-                            style={[styles.tabularSubMeta, { color: theme.textSecondary }]}
-                            numberOfLines={1}>
-                            Ocena • {g.author_name}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-              </GlassCard>
-            </Animated.View>
-          )}
-
-          {/* 2. STUDENT PROFILE & UNIVERSITY CARD WITH HIGH-RES PHOTO */}
-          <GlassCard elevated padding={15} delay={40}>
-            <View style={styles.profileTopRow}>
-              <Pressable
-                onPress={() => router.push('/modal/module/mcard')}
-                style={styles.avatarRow}>
+                  hapticTap();
+                  router.push('/modal/module/mcard');
+                }}
+                accessibilityLabel="Otwórz mLegitymację"
+                style={({ pressed }) => [pressed && { opacity: 0.72 }]}>
                 <Avatar
                   name={`${user.first_name} ${user.last_name}`}
                   uri={user.photo_url}
-                  size={56}
-                  borderColor={theme.accent}
+                  size={34}
+                  borderColor={theme.cardBorder}
                   variant="student"
                 />
-                <View style={styles.uniBadgeOverlay}>
-                  <UniversityIcon installation={selectedInstallation} size={22} />
-                </View>
               </Pressable>
-
-              <View style={styles.profileTextCol}>
-                <View style={styles.uniTagRow}>
-                  <View style={[styles.brandDot, { backgroundColor: theme.accent }]} />
-                  <Text
-                    style={[styles.uniShortText, { color: theme.accent }]}
-                    numberOfLines={1}>
-                    RIFT DAILY // {selectedInstallation.shortName}
-                  </Text>
-                </View>
-
-                <Text style={[styles.greeting, { color: theme.text }]} numberOfLines={1}>
-                  {user.first_name} {user.last_name}
-                </Text>
-
-                <Text
-                  style={[styles.programmeText, { color: theme.textSecondary }]}
-                  numberOfLines={1}>
-                  #{user.student_number} •{' '}
-                  {user.programmes[0]?.name.pl || selectedInstallation.namePl}
-                </Text>
-              </View>
-
-              <View style={styles.topActions}>
-                <Pressable
-                  onPress={() => router.push('/(tabs)/settings')}
-                  accessibilityLabel="Powiadomienia i ustawienia"
-                  style={[
-                    styles.iconBtn,
-                    {
-                      backgroundColor: theme.bgSecondary,
-                      borderColor: theme.cardBorder,
-                    },
-                  ]}>
-                  <Ionicons name="notifications-outline" size={17} color={theme.accent} />
-                </Pressable>
-
-                <Pressable
-                  onPress={toggleLightDark}
-                  accessibilityLabel="Przełącz jasny i ciemny motyw"
-                  style={[
-                    styles.iconBtn,
-                    {
-                      backgroundColor: theme.bgSecondary,
-                      borderColor: theme.cardBorder,
-                    },
-                  ]}>
-                  <Ionicons
-                    name={theme.isDark ? 'sunny-outline' : 'moon-outline'}
-                    size={17}
-                    color={theme.warning}
-                  />
-                </Pressable>
-
-                {securityEnabled && (
-                  <Pressable
-                    onPress={lockSession}
-                    accessibilityLabel="Zablokuj aplikację kodem PIN"
-                    style={[
-                      styles.iconBtn,
-                      {
-                        backgroundColor: theme.bgSecondary,
-                        borderColor: theme.cardBorder,
-                      },
-                    ]}>
-                    <Ionicons name="lock-closed-outline" size={16} color={theme.accent} />
-                  </Pressable>
-                )}
-              </View>
             </View>
-          </GlassCard>
+          </View>
 
-          {/* 2B. IMMEDIATE NEXT / ONGOING CLASS SPOTLIGHT CARD */}
-          {nextClassInfo && (
-            <GlassCard
-              elevated
-              padding={15}
-              delay={60}
-              onPress={() => router.push(`/modal/course/${nextClassInfo.activity.course_id}`)}
-              style={styles.nextClassCard}>
-              <View style={styles.nextClassTopBar}>
-                <View style={styles.nextClassTitleWrap}>
-                  <View
-                    style={[
-                      styles.liveDot,
-                      {
-                        backgroundColor: nextClassInfo.isOngoing
-                          ? theme.success
-                          : theme.accent,
-                      },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.cardHeaderMono,
-                      {
-                        color: nextClassInfo.isOngoing ? theme.success : theme.accent,
-                      },
-                    ]}>
-                    {nextClassInfo.isOngoing ? 'TRWAJĄCE ZAJĘCIA' : 'NAJBLIŻSZE ZAJĘCIA'}
-                  </Text>
-                </View>
+          <View style={styles.greetingBlock}>
+            <Text style={[styles.greetingTitle, { color: theme.text }]} numberOfLines={1}>
+              Cześć, {user.first_name}
+            </Text>
+            <Text style={[styles.briefSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+              {dynamicBrief}
+            </Text>
+          </View>
+        </View>
 
-                <View
-                  style={[
-                    styles.nextClassStatusBadge,
-                    {
-                      backgroundColor: nextClassInfo.isOngoing
-                        ? theme.successSoft
-                        : theme.accentSoft,
-                      borderColor: nextClassInfo.isOngoing
-                        ? `${theme.success}55`
-                        : `${theme.accent}55`,
-                    },
-                  ]}>
-                  <Ionicons
-                    name={nextClassInfo.isOngoing ? 'radio-button-on' : 'time-outline'}
-                    size={12}
-                    color={nextClassInfo.isOngoing ? theme.success : theme.accent}
-                  />
-                  <Text
-                    style={[
-                      styles.nextClassStatusText,
-                      {
-                        color: nextClassInfo.isOngoing ? theme.success : theme.accent,
-                      },
-                    ]}>
-                    {nextClassInfo.statusBadge}
-                  </Text>
-                </View>
-              </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
 
-              <View style={styles.nextClassMainRow}>
-                <Avatar
-                  name={nextClassInfo.activity.lecturer_name}
-                  uri={nextClassInfo.activity.lecturer_photo}
-                  size={48}
-                  borderColor={theme.cardBorder}
-                />
+          {/* 3. FLIGHTY-STYLE GLANCEABLE LIVE HERO (Pure Open Typography + Telemetry Row) */}
+          <EditorialFade delayMs={30}>
+            {nextClassInfo ? (
+              <Pressable
+                onPress={() => {
+                  hapticTap();
+                  router.push(`/modal/course/${nextClassInfo.activity.course_id}`);
+                }}
+                style={({ pressed }) => [
+                  styles.spotlightWrap,
+                  pressed && { opacity: 0.76 },
+                ]}>
+                <HairlineDraw color={theme.separator} delayMs={20} />
 
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={[styles.nextClassCourseName, { color: theme.text }]}
-                    numberOfLines={1}>
-                    {nextClassInfo.activity.course_name.pl}
-                  </Text>
-                  <Text
-                    style={[styles.nextClassMetaLine, { color: theme.textSecondary }]}
-                    numberOfLines={1}>
-                    {nextClassInfo.activity.class_type.pl} • {nextClassInfo.activity.lecturer_name}
-                  </Text>
-                  <View style={styles.nextClassChipsRow}>
+                <View style={styles.spotlightInner}>
+                  <View style={styles.spotlightTopRow}>
+                    <View style={styles.spotlightLabelRow}>
+                      <LivePulseDot
+                        color={nextClassInfo.isOngoing ? theme.success : theme.text}
+                        size={6}
+                        active={nextClassInfo.isOngoing}
+                      />
+                      <Text
+                        style={[
+                          styles.spotlightOverline,
+                          { color: nextClassInfo.isOngoing ? theme.success : theme.textMuted },
+                        ]}>
+                        {nextClassInfo.isOngoing ? 'TRWA TERAZ' : 'NASTĘPNE ZAJĘCIA'}
+                      </Text>
+                    </View>
+
                     <View
                       style={[
-                        styles.nextClassChip,
+                        styles.countdownPill,
                         {
-                          backgroundColor: theme.bgSecondary,
-                          borderColor: theme.cardBorder,
+                          backgroundColor: nextClassInfo.isOngoing
+                            ? theme.successSoft
+                            : theme.primary,
                         },
                       ]}>
-                      <Ionicons name="time-outline" size={12} color={theme.accent} />
-                      <Text style={[styles.nextClassChipText, { color: theme.text }]}>
+                      <ScrambleText
+                        text={nextClassInfo.statusBadge}
+                        durationMs={340}
+                        style={[
+                          styles.countdownPillText,
+                          {
+                            color: nextClassInfo.isOngoing
+                              ? theme.success
+                              : theme.primaryContrast,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={[styles.spotlightTitle, { color: theme.text }]} numberOfLines={2}>
+                    {nextClassInfo.activity.course_name.pl}
+                  </Text>
+
+                  {/* High-utility 3-column Flighty glance row: TIME | ROOM | TYPE */}
+                  <View style={styles.telemetryGrid}>
+                    <View style={styles.telemetryCell}>
+                      <Text style={[styles.telemetryLabel, { color: theme.textMuted }]}>
+                        GODZINA
+                      </Text>
+                      <Text style={[styles.telemetryValue, { color: theme.text }]}>
                         {nextClassInfo.activity.start_time}–{nextClassInfo.activity.end_time}
                       </Text>
                     </View>
 
                     <View
-                      style={[
-                        styles.nextClassChip,
-                        {
-                          backgroundColor: theme.warningSoft,
-                          borderColor: `${theme.warning}45`,
-                        },
-                      ]}>
-                      <Ionicons name="location-outline" size={12} color={theme.warning} />
-                      <Text
-                        style={[styles.nextClassChipText, { color: theme.warning }]}
-                        numberOfLines={1}>
-                        Sala {nextClassInfo.activity.room_number}
-                      </Text>
-                    </View>
-
-                    <Text
-                      style={[styles.nextClassCountdown, { color: theme.textSecondary }]}
-                      numberOfLines={1}>
-                      {nextClassInfo.countdownLabel}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {nextClassInfo.afterActivity && (
-                <View
-                  style={[
-                    styles.nextClassAfterStrip,
-                    { borderTopColor: theme.separator },
-                  ]}>
-                  <Ionicons name="arrow-forward-circle-outline" size={14} color={theme.textMuted} />
-                  <Text
-                    style={[styles.nextClassAfterText, { color: theme.textSecondary }]}
-                    numberOfLines={1}>
-                    Następnie ({nextClassInfo.afterActivity.start_time}):{' '}
-                    <Text style={{ color: theme.text, fontWeight: '800' }}>
-                      {nextClassInfo.afterActivity.course_name.pl}
-                    </Text>{' '}
-                    • s. {nextClassInfo.afterActivity.room_number}
-                  </Text>
-                </View>
-              )}
-            </GlassCard>
-          )}
-
-          {/* 3. CONCEPT B ASYMMETRIC BENTO GRID (GPA + ECTS + KURSY + INDEKS) */}
-          <View style={styles.bentoContainer}>
-            {/* Left Big GPA Tile */}
-            <GlassCard
-              style={styles.bentoLeftGpa}
-              padding={17}
-              delay={80}
-              onPress={() => router.push('/(tabs)/grades')}>
-              <View style={styles.bentoHeaderRow}>
-                <View style={styles.bentoIconLabel}>
-                  <View style={[styles.miniAccentDot, { backgroundColor: theme.success }]} />
-                  <Text style={[styles.bentoLabel, { color: theme.textSecondary }]}>
-                    GPA / ŚREDNIA
-                  </Text>
-                </View>
-                <Ionicons name="trending-up" size={16} color={theme.success} />
-              </View>
-              <Text
-                style={[styles.bentoHeroNumber, { color: theme.text }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit>
-                {weightedGpa}
-              </Text>
-              <Text
-                style={[styles.bentoSubText, { color: theme.textSecondary }]}
-                numberOfLines={1}>
-                {grades.length} ocen w protokołach
-              </Text>
-            </GlassCard>
-
-            {/* Right Stack: Top 2 mini tiles (ECTS + KURSY), Bottom payment/card strip */}
-            <View style={styles.bentoRightCol}>
-              <View style={styles.bentoTopMiniRow}>
-                <GlassCard
-                  style={styles.bentoMiniTile}
-                  padding={12}
-                  delay={110}
-                  onPress={() => router.push('/(tabs)/grades')}>
-                  <Text style={[styles.bentoLabel, { color: theme.accent }]} numberOfLines={1}>
-                    ECTS
-                  </Text>
-                  <Text
-                    style={[styles.bentoMiniValue, { color: theme.text }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit>
-                    {totalEcts}
-                  </Text>
-                </GlassCard>
-
-                <GlassCard
-                  style={styles.bentoMiniTile}
-                  padding={12}
-                  delay={130}
-                  onPress={() => router.push('/(tabs)/courses')}>
-                  <Text style={[styles.bentoLabel, { color: theme.purple }]} numberOfLines={1}>
-                    KURSY
-                  </Text>
-                  <Text
-                    style={[styles.bentoMiniValue, { color: theme.text }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit>
-                    {courses.length}
-                  </Text>
-                </GlassCard>
-              </View>
-
-              <GlassCard
-                style={styles.bentoBottomStrip}
-                padding={12}
-                delay={150}
-                onPress={() =>
-                  router.push(
-                    unpaidPayments.length > 0 ? '/modal/module/payments' : '/modal/module/mcard'
-                  )
-                }>
-                {unpaidPayments.length > 0 ? (
-                  <>
-                    <View style={styles.stripTopRow}>
-                      <View style={[styles.miniAccentDot, { backgroundColor: theme.warning }]} />
-                      <Text
-                        style={[styles.bentoStripCode, { color: theme.warning }]}
-                        numberOfLines={1}>
-                        RATA DO ZAPŁATY: {unpaidPayments[0].amount.toFixed(0)} PLN
-                      </Text>
-                    </View>
-                    <Text
-                      style={[styles.bentoStripSub, { color: theme.textSecondary }]}
-                      numberOfLines={1}>
-                      {unpaidPayments[0].title}
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text
-                      style={[styles.bentoStripCode, { color: theme.text }]}
-                      numberOfLines={1}>
-                      {selectedInstallation.shortName} // #{user.student_number}
-                    </Text>
-                    <Text
-                      style={[styles.bentoStripSub, { color: theme.textSecondary }]}
-                      numberOfLines={1}>
-                      mLegitymacja ELS • Aktywny student
-                    </Text>
-                  </>
-                )}
-              </GlassCard>
-            </View>
-          </View>
-
-          {/* 5. CONCEPT B TEACHER PORTRAIT LIST CARD */}
-          <GlassCard padding={16} delay={220} style={styles.teachersCard}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardHeaderMono, { color: theme.textSecondary }]}>
-                TWOI WYKŁADOWCY I PROWADZĄCY
-              </Text>
-              <Pressable onPress={() => router.push('/modal/module/staff')}>
-                <Text style={[styles.seeAllLink, { color: theme.accent }]}>
-                  Katalog ({staff.length}) →
-                </Text>
-              </Pressable>
-            </View>
-
-            {myTeachers.length === 0 ? (
-              <Pressable
-                onPress={() => router.push('/modal/module/staff')}
-                style={styles.emptyClassRow}>
-                <Ionicons name="people-outline" size={22} color={theme.purple} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                    Wyszukiwarka kadry {selectedInstallation.shortName}
-                  </Text>
-                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                    Dotknij, aby wyszukać wykładowców, pokoje i godziny konsultacji
-                  </Text>
-                </View>
-              </Pressable>
-            ) : (
-              <View style={styles.teacherRowsWrap}>
-                {myTeachers.slice(0, 5).map((teacher, idx) => (
-                  <Pressable
-                    key={teacher.id}
-                    onPress={() => router.push('/modal/module/staff')}
-                    style={[
-                      styles.teacherListItem,
-                      idx > 0 && {
-                        borderTopWidth: 1,
-                        borderTopColor: theme.separator,
-                      },
-                    ]}>
-                    <Avatar
-                      name={teacher.name}
-                      uri={teacher.photo_url}
-                      size={46}
-                      borderColor={theme.cardBorder}
+                      style={[styles.telemetryDivider, { backgroundColor: theme.separator }]}
                     />
-                    <View style={styles.teacherTextCol}>
-                      <View style={styles.teacherTitleRow}>
-                        <Text
-                          style={[styles.teacherRowName, { color: theme.text }]}
-                          numberOfLines={1}>
-                          {teacher.name}
-                        </Text>
+
+                    <View style={styles.telemetryCell}>
+                      <Text style={[styles.telemetryLabel, { color: theme.textMuted }]}>
+                        SALA
+                      </Text>
+                      <Text
+                        style={[styles.telemetryValue, { color: theme.text }]}
+                        numberOfLines={1}>
+                        {nextClassInfo.activity.room_number || '—'}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[styles.telemetryDivider, { backgroundColor: theme.separator }]}
+                    />
+
+                    <View style={styles.telemetryCell}>
+                      <Text style={[styles.telemetryLabel, { color: theme.textMuted }]}>
+                        FORMA
+                      </Text>
+                      <Text
+                        style={[styles.telemetryValue, { color: theme.textSecondary }]}
+                        numberOfLines={1}>
+                        {getClassTypeShort(nextClassInfo.activity.class_type_id)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.spotlightLecturerRow}>
+                    <Avatar
+                      name={nextClassInfo.activity.lecturer_name}
+                      uri={nextClassInfo.activity.lecturer_photo}
+                      size={20}
+                    />
+                    <Text
+                      style={[styles.spotlightLecturerText, { color: theme.textSecondary }]}
+                      numberOfLines={1}>
+                      {nextClassInfo.activity.lecturer_name}
+                      {nextClassInfo.activity.building_name?.pl
+                        ? ` · ${nextClassInfo.activity.building_name.pl}`
+                        : ''}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
+                  </View>
+
+                  {nextClassInfo.isOngoing && (
+                    <View style={styles.progressWrap}>
+                      <View style={[styles.progressTrack, { backgroundColor: theme.bgSecondary }]}>
                         <View
                           style={[
-                            styles.degreePill,
+                            styles.progressFill,
                             {
-                              backgroundColor: theme.purpleSoft,
-                              borderColor: `${theme.purple}40`,
+                              width: `${nextClassInfo.progressPercent}%`,
+                              backgroundColor: theme.success,
                             },
-                          ]}>
-                          <Text
-                            style={[styles.degreePillText, { color: theme.purple }]}
-                            numberOfLines={1}>
-                            {teacher.titles}
-                          </Text>
-                        </View>
+                          ]}
+                        />
                       </View>
-                      <Text
-                        style={[styles.teacherRowSub, { color: theme.textSecondary }]}
-                        numberOfLines={1}>
-                        {teacher.email && teacher.email.includes('@')
-                          ? teacher.email
-                          : teacher.courses_taught?.[0] || teacher.office_hours || teacher.faculty}
+                      <Text style={[styles.progressCaption, { color: theme.textSecondary }]}>
+                        {nextClassInfo.countdownLabel} · {nextClassInfo.progressPercent}%
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </GlassCard>
+                  )}
 
-          {/* 6. LATEST GRADES IN PROTOCOLS WITH AUTHOR AVATARS */}
-          <GlassCard padding={16} delay={260} style={styles.gradesCard}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardHeaderMono, { color: theme.textSecondary }]}>
-                OSTATNIE OCENY W PROTOKOŁACH
-              </Text>
-              <Pressable onPress={() => router.push('/(tabs)/grades')}>
-                <Text style={[styles.seeAllLink, { color: theme.accent }]}>
-                  Wykaz ({grades.length}) →
-                </Text>
-              </Pressable>
-            </View>
-
-            {recentGrades.length === 0 ? (
-              <View style={styles.emptyClassRow}>
-                <Ionicons name="school-outline" size={22} color={theme.success} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                    Brak wpisanych ocen w bieżącym protokole
-                  </Text>
-                  <Text style={[styles.emptySub, { color: theme.textSecondary }]}>
-                    Pociągnij w dół, aby zsynchronizować protokoły ocen z uczelni.
-                  </Text>
+                  {nextClassInfo.afterActivity && (
+                    <Text style={[styles.afterInline, { color: theme.textMuted }]} numberOfLines={1}>
+                      {spotlightAfterGap >= 20
+                        ? `Okienko ${formatDurationPl(spotlightAfterGap)} → `
+                        : 'Następnie '}
+                      <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>
+                        {nextClassInfo.afterActivity.start_time}{' '}
+                        {nextClassInfo.afterActivity.course_name.pl}
+                      </Text>
+                      {nextClassInfo.afterActivity.room_number
+                        ? ` · s. ${nextClassInfo.afterActivity.room_number}`
+                        : ''}
+                    </Text>
+                  )}
                 </View>
-              </View>
+
+                <HairlineDraw color={theme.separator} delayMs={90} />
+              </Pressable>
             ) : (
-              <View style={styles.teacherRowsWrap}>
-                {recentGrades.map((grade, idx) => (
-                  <Pressable
-                    key={grade.id}
-                    onPress={() => router.push(`/modal/course/${grade.course_id}`)}
-                    style={[
-                      styles.gradeRow,
-                      idx > 0 && {
-                        borderTopWidth: 1,
-                        borderTopColor: theme.separator,
-                      },
-                    ]}>
-                    <GradeBadge symbol={grade.value_symbol} size="sm" />
-                    <View style={styles.teacherTextCol}>
-                      <Text
-                        style={[styles.gradeCourseName, { color: theme.text }]}
-                        numberOfLines={1}>
-                        {grade.course_name.pl}
-                      </Text>
-                      <View style={styles.gradeAuthorLine}>
-                        <Avatar name={grade.author_name} uri={grade.author_photo} size={18} />
-                        <Text
-                          style={[styles.gradeMeta, { color: theme.textSecondary }]}
-                          numberOfLines={1}>
-                          {grade.author_name} • {grade.term_id}
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                  </Pressable>
-                ))}
+              <View style={[styles.calmNotice, { borderTopColor: theme.separator, borderBottomColor: theme.separator }]}>
+                <Ionicons name="checkmark-done-outline" size={17} color={theme.textSecondary} />
+                <Text style={[styles.calmNoticeText, { color: theme.textSecondary }]}>
+                  Brak nadchodzących zajęć w rozkładzie. Dane aktualizują się automatycznie.
+                </Text>
               </View>
             )}
-          </GlassCard>
+          </EditorialFade>
 
-          {/* 7. ALL USOS MODULES QUICK GRID (4x2 with subtle color accents) */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.cardHeaderMono, { color: theme.textSecondary }]}>
-              MODUŁY USOS NA SKRÓTY
-            </Text>
-          </View>
-
-          <View style={styles.modulesGrid}>
-            {quickModules.map((m) => (
-              <Pressable
-                key={m.slug}
-                onPress={() => {
-                  if (Platform.OS === 'ios') {
-                    Haptics.selectionAsync().catch(() => {});
-                  }
-                  router.push(`/modal/module/${m.slug}`);
-                }}
-                style={({ pressed }) => [
-                  styles.moduleTile,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.cardBorder,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}>
-                <View
-                  style={[
-                    styles.modIconCircle,
-                    { backgroundColor: `${m.color}20`, borderColor: `${m.color}40` },
-                  ]}>
-                  <Ionicons name={m.icon} size={19} color={m.color} />
-                </View>
-                <Text style={[styles.moduleTileLabel, { color: theme.text }]} numberOfLines={1}>
-                  {m.label}
+          {/* 4. OPTIONAL SLIM UNPAID ALERT (Restrained semantic amber) */}
+          {unpaidPayments.length > 0 && (
+            <Pressable
+              onPress={() => {
+                hapticTap();
+                router.push('/modal/module/payments');
+              }}
+              style={({ pressed }) => [
+                styles.inlineAlertBar,
+                { borderBottomColor: theme.separator, opacity: pressed ? 0.72 : 1 },
+              ]}>
+              <View style={[styles.alertDot, { backgroundColor: theme.warning }]} />
+              <Text style={[styles.inlineAlertText, { color: theme.text }]} numberOfLines={1}>
+                Rata do zapłaty:{' '}
+                <Text style={{ fontFamily: MONO_FONT, fontWeight: '800' }}>
+                  {totalUnpaidAmount.toFixed(0)} {unpaidPayments[0].currency}
                 </Text>
-              </Pressable>
+                {unpaidPayments[0].due_date ? ` · do ${unpaidPayments[0].due_date}` : ''}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
+            </Pressable>
+          )}
+
+          {/* 5. MONOCHROME LIQUID GLASS QUICK CAPSULES */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickPillsRow}
+            style={styles.quickPillsScroll}>
+            {quickPills.map((pill) => (
+              <GlassSurface
+                key={pill.slug}
+                radius={999}
+                interactive
+                onPress={() => router.push(`/modal/module/${pill.slug}`)}
+                contentStyle={styles.quickPillInner}>
+                <Ionicons name={pill.icon} size={14} color={theme.textSecondary} />
+                <Text style={[styles.quickPillText, { color: theme.text }]}>{pill.label}</Text>
+                {pill.alert && (
+                  <View
+                    style={[
+                      styles.pillNotifDot,
+                      {
+                        backgroundColor:
+                          pill.slug === 'payments' ? theme.warning : theme.text,
+                      },
+                    ]}
+                  />
+                )}
+              </GlassSurface>
             ))}
-          </View>
+          </ScrollView>
+
+          {/* 6. TODAY'S AGENDA TIMELINE */}
+          <SectionHeader
+            title={agendaDayLabel}
+            actionLabel="Pełny plan →"
+            onActionPress={() => router.push('/(tabs)/timetable')}
+          />
+
+          {agendaItems.length === 0 ? (
+            <View style={[styles.emptySection, { borderBottomColor: theme.separator }]}>
+              <Text style={[styles.emptySectionTitle, { color: theme.text }]}>
+                Wolny dzień od zajęć
+              </Text>
+              <Text style={[styles.emptySectionSub, { color: theme.textSecondary }]}>
+                Sprawdź cały tydzień w zakładce Plan lub odśwież dane z USOS.
+              </Text>
+            </View>
+          ) : (
+            <View>
+              {agendaItems.map((act, idx) => {
+                const prev = idx > 0 ? agendaItems[idx - 1] : null;
+                const gapMin = prev ? getGapMinutes(prev, act) : 0;
+                return (
+                  <React.Fragment key={act.id}>
+                    {gapMin >= 20 && <ScheduleGapRow minutes={gapMin} />}
+                    <ScheduleTimelineRow
+                      activity={act}
+                      now={now}
+                      compact
+                      showDivider={idx < agendaItems.length - 1}
+                      onPress={() => router.push(`/modal/course/${act.course_id}`)}
+                    />
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          )}
+
+          {/* 7. SPACIOUS 3-COLUMN ACADEMIC TELEMETRY STRIP */}
+          <SectionHeader
+            title="Podsumowanie"
+            actionLabel="Dziennik →"
+            onActionPress={() =>
+              router.push({ pathname: '/(tabs)/grades', params: { tab: 'grades' } })
+            }
+          />
+          <MetricStrip
+            items={[
+              {
+                label: 'Średnia',
+                value: weightedGpa,
+                onPress: () =>
+                  router.push({ pathname: '/(tabs)/grades', params: { tab: 'grades' } }),
+              },
+              {
+                label: 'ECTS',
+                value: String(totalEcts),
+                onPress: () =>
+                  router.push({ pathname: '/(tabs)/grades', params: { tab: 'courses' } }),
+              },
+              {
+                label: 'Kursy',
+                value: String(courses.length),
+                onPress: () =>
+                  router.push({ pathname: '/(tabs)/grades', params: { tab: 'courses' } }),
+              },
+            ]}
+          />
+
+          {/* 8. RECENT ACTIVITY FEED */}
+          <SectionHeader
+            title="Ostatnie wpisy"
+            actionLabel={`Wszystkie (${grades.length}) →`}
+            onActionPress={() =>
+              router.push({ pathname: '/(tabs)/grades', params: { tab: 'grades' } })
+            }
+          />
+
+          {recentGrades.length === 0 && upcomingExams.length === 0 ? (
+            <View style={styles.emptySection}>
+              <Text style={[styles.emptySectionTitle, { color: theme.text }]}>
+                Brak nowych wpisów w protokołach
+              </Text>
+              <Text style={[styles.emptySectionSub, { color: theme.textSecondary }]}>
+                Nowe oceny i terminy egzaminów pojawią się tutaj po synchronizacji.
+              </Text>
+            </View>
+          ) : (
+            <View>
+              {upcomingExams.map((ex) => (
+                <ListRow
+                  key={`exam-${ex.id}`}
+                  dense
+                  title={ex.course_name}
+                  subtitle={`${ex.type} · ${ex.date}${ex.time ? `, ${ex.time}` : ''}${
+                    ex.room ? ` · s. ${ex.room}` : ''
+                  }`}
+                  left={
+                    <View style={[styles.examIconBox, { backgroundColor: theme.primarySoft }]}>
+                      <Ionicons name="calendar-outline" size={15} color={theme.text} />
+                    </View>
+                  }
+                  rightBadge={ex.is_registered ? 'ZAPISANY' : 'SESJA'}
+                  showChevron
+                  showDivider={recentGrades.length > 0}
+                  onPress={() => router.push('/modal/module/exams')}
+                />
+              ))}
+
+              {recentGrades.map((grade, idx) => (
+                <ListRow
+                  key={grade.id}
+                  dense
+                  title={grade.course_name.pl}
+                  subtitle={`${grade.author_name} · ${grade.class_type || `Sem. ${grade.term_id}`}`}
+                  left={<GradeBadge symbol={grade.value_symbol} size="xs" />}
+                  rightText={grade.date_modified ? grade.date_modified.slice(0, 10) : grade.term_id}
+                  showChevron
+                  showDivider={idx < recentGrades.length - 1}
+                  onPress={() => router.push(`/modal/course/${grade.course_id}`)}
+                />
+              ))}
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
+
+      <GlobalSearchModal visible={searchVisible} onClose={() => setSearchVisible(false)} />
     </View>
   );
 }
@@ -1153,529 +638,226 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 118,
-    gap: 12,
+  stickyHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  topSearchBar: {
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    paddingBottom: 112,
+  },
+  topUtilityBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    gap: 11,
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 8,
   },
-  searchIconBadge: {
+  dateMono: {
+    fontFamily: MONO_FONT,
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  glassIconBtn: {
     width: 34,
     height: 34,
-    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topSearchInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  kbdPill: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  kbdText: {
-    fontFamily: MONO_FONT,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  searchDropdownCard: {
-    gap: 10,
-  },
-  hintChipsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 2,
-  },
-  hintChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 11,
-    borderWidth: 1,
-  },
-  hintChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  quickHintGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  quickHintTile: {
-    width: '48.5%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    padding: 11,
-    borderRadius: 13,
-    borderWidth: 1,
-  },
-  quickHintTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  quickHintSub: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  searchMiniTimePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 9,
-    minWidth: 50,
-    alignItems: 'center',
-  },
-  searchMiniTimeText: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  searchHitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
-  profileTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatarRow: {
-    position: 'relative',
-    flexShrink: 0,
-  },
-  uniBadgeOverlay: {
-    position: 'absolute',
-    bottom: -3,
-    right: -4,
-  },
-  profileTextCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  uniTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  brandDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  uniShortText: {
-    fontFamily: MONO_FONT,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    flexShrink: 1,
-  },
-  greeting: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-    marginTop: 2,
-  },
-  programmeText: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  topActions: {
-    flexDirection: 'row',
-    gap: 6,
-    flexShrink: 0,
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bentoContainer: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  bentoLeftGpa: {
-    flex: 1.05,
-    justifyContent: 'space-between',
-    minHeight: 146,
-  },
-  bentoRightCol: {
-    flex: 1,
-    gap: 10,
-    minWidth: 0,
-  },
-  bentoTopMiniRow: {
-    flexDirection: 'row',
-    gap: 10,
-    flex: 1,
-  },
-  bentoMiniTile: {
-    flex: 1,
-    justifyContent: 'space-between',
-    minWidth: 0,
-  },
-  bentoHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  bentoIconLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  miniAccentDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  bentoLabel: {
-    fontFamily: MONO_FONT,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  bentoHeroNumber: {
-    fontFamily: MONO_FONT,
-    fontSize: 40,
-    fontWeight: '800',
-    letterSpacing: -1.5,
-    marginVertical: 4,
-  },
-  bentoSubText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  bentoMiniValue: {
-    fontFamily: MONO_FONT,
-    fontSize: 23,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    marginTop: 4,
-  },
-  bentoBottomStrip: {
-    justifyContent: 'center',
+  greetingBlock: {
     gap: 2,
   },
-  stripTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  bentoStripCode: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
+  greetingTitle: {
+    fontSize: 30,
     fontWeight: '800',
-    flexShrink: 1,
+    letterSpacing: -0.9,
   },
-  bentoStripSub: {
-    fontSize: 11,
-    fontWeight: '500',
+  briefSubtitle: {
+    fontSize: 14,
+    lineHeight: 19,
   },
-  scheduleCard: {
+  spotlightWrap: {
+    marginBottom: 4,
+  },
+  spotlightInner: {
+    paddingVertical: 18,
     gap: 10,
   },
-  cardHeaderRow: {
+  spotlightTopRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
     gap: 8,
   },
-  cardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-    minWidth: 0,
-  },
-  cardHeaderMono: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    flexShrink: 1,
-  },
-  livePill: {
+  spotlightLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
   },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  livePillText: {
-    fontFamily: MONO_FONT,
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  seeAllLink: {
-    fontFamily: MONO_FONT,
-    fontSize: 11,
-    fontWeight: '800',
-    flexShrink: 0,
-  },
-  tabularList: {
-    marginTop: 2,
-  },
-  tabularRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 10,
-  },
-  tabularTimeRoomCol: {
-    width: 86,
-    gap: 3,
-    flexShrink: 0,
-  },
-  tabularTime: {
+  spotlightOverline: {
     fontFamily: MONO_FONT,
     fontSize: 10,
-    fontWeight: '700',
-  },
-  roomPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 7,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-  },
-  roomPillText: {
-    fontFamily: MONO_FONT,
-    fontSize: 9,
     fontWeight: '800',
+    letterSpacing: 0.9,
   },
-  tabularTextCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  tabularSubject: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  tabularSubMeta: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  teachersCard: {
-    gap: 8,
-  },
-  teacherRowsWrap: {
-    marginTop: 2,
-  },
-  teacherListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 12,
-  },
-  teacherTextCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  teacherTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  teacherRowName: {
-    fontSize: 14,
-    fontWeight: '800',
-    flexShrink: 1,
-  },
-  degreePill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    flexShrink: 0,
-    maxWidth: 96,
-  },
-  degreePillText: {
-    fontFamily: MONO_FONT,
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  teacherRowSub: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  gradesCard: {
-    gap: 8,
-  },
-  gradeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 12,
-  },
-  gradeCourseName: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  gradeAuthorLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 3,
-  },
-  gradeMeta: {
-    fontSize: 11,
-    flex: 1,
-  },
-  emptyClassRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
-  },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  emptySub: {
-    fontSize: 12,
-    marginTop: 2,
-    lineHeight: 17,
-  },
-  sectionHeader: {
-    marginTop: 4,
-    marginBottom: -2,
-    paddingHorizontal: 2,
-  },
-  modulesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 9,
-  },
-  moduleTile: {
-    width: '22.8%',
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 6,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 7,
-  },
-  modIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moduleTileLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  nextClassCard: {
-    gap: 12,
-  },
-  nextClassTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  nextClassTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  nextClassStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+  countdownPill: {
     paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingVertical: 3.5,
     borderRadius: 999,
-    borderWidth: 1,
   },
-  nextClassStatusText: {
+  countdownPillText: {
     fontFamily: MONO_FONT,
     fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.3,
   },
-  nextClassMainRow: {
+  spotlightTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.55,
+    lineHeight: 25,
+  },
+  telemetryGrid: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingVertical: 6,
   },
-  nextClassCourseName: {
-    fontSize: 16,
-    fontWeight: '900',
+  telemetryCell: {
+    flex: 1,
+    gap: 2,
+    paddingRight: 8,
+  },
+  telemetryDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 26,
+    marginRight: 12,
+  },
+  telemetryLabel: {
+    fontFamily: MONO_FONT,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  telemetryValue: {
+    fontFamily: MONO_FONT,
+    fontSize: 14.5,
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
-  nextClassMetaLine: {
-    fontSize: 12,
-    fontWeight: '600',
+  spotlightLecturerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  spotlightLecturerText: {
+    fontSize: 13,
+    flex: 1,
+  },
+  progressWrap: {
+    gap: 4,
     marginTop: 2,
   },
-  nextClassChipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 7,
-    marginTop: 8,
+  progressTrack: {
+    height: 3.5,
+    borderRadius: 2,
+    overflow: 'hidden',
   },
-  nextClassChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 9,
-    borderWidth: 1,
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
-  nextClassChipText: {
+  progressCaption: {
     fontFamily: MONO_FONT,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '600',
   },
-  nextClassCountdown: {
-    fontSize: 11,
-    fontWeight: '700',
+  afterInline: {
+    fontSize: 12,
+    marginTop: 2,
   },
-  nextClassAfterStrip: {
+  calmNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  calmNoticeText: {
+    flex: 1,
+    fontSize: 13.5,
+    lineHeight: 19,
+  },
+  inlineAlertBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  alertDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  inlineAlertText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  quickPillsScroll: {
+    marginHorizontal: -18,
+    marginTop: 14,
+  },
+  quickPillsRow: {
+    paddingHorizontal: 18,
+    gap: 8,
+    paddingVertical: 4,
+  },
+  quickPillInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    borderTopWidth: 1,
-    paddingTop: 10,
+    height: 36,
+    paddingHorizontal: 14,
   },
-  nextClassAfterText: {
-    flex: 1,
-    fontSize: 12,
+  quickPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  pillNotifDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  examIconBox: {
+    width: 34,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySection: {
+    paddingVertical: 20,
+    gap: 4,
+  },
+  emptySectionTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  emptySectionSub: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
