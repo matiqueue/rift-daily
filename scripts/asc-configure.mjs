@@ -468,75 +468,84 @@ async function cmdAssets() {
   const version = await getPrepareVersion(appId);
   if (!version) throw new Error('No PREPARE_FOR_SUBMISSION version found.');
 
-  // 1. Upload 5 screenshots (6.9" -> APP_IPHONE_67) for both pl and en-US
-  const shotsDir = path.join(ROOT, 'assets/appstore-screenshots');
-  if (fs.existsSync(shotsDir)) {
+  // 1. Upload screenshots for iPhone 6.9" (APP_IPHONE_67) and iPad 13" (APP_IPAD_PRO_3GEN_129) for both pl and en-US
+  const screenshotGroups = [
+    { dir: path.join(ROOT, 'assets/appstore-screenshots'), displayType: 'APP_IPHONE_67' },
+    { dir: path.join(ROOT, 'assets/appstore-ipad-screenshots'), displayType: 'APP_IPAD_PRO_3GEN_129' },
+  ];
+
+  const vLocsRes = await asc(
+    'GET',
+    `/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`
+  );
+
+  for (const group of screenshotGroups) {
+    if (!fs.existsSync(group.dir)) continue;
     const files = fs
-      .readdirSync(shotsDir)
+      .readdirSync(group.dir)
       .filter((f) => f.endsWith('.png'))
       .sort();
+    if (files.length === 0) continue;
 
-    if (files.length > 0) {
-      const vLocsRes = await asc(
+    for (const loc of vLocsRes.data || []) {
+      const setsRes = await asc(
         'GET',
-        `/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`
+        `/v1/appStoreVersionLocalizations/${loc.id}/appScreenshotSets`
       );
-      for (const loc of vLocsRes.data || []) {
-        const setsRes = await asc(
-          'GET',
-          `/v1/appStoreVersionLocalizations/${loc.id}/appScreenshotSets`
-        );
-        let set = (setsRes.data || []).find(
-          (s) => s.attributes.screenshotDisplayType === 'APP_IPHONE_67'
-        );
-        if (!set) {
-          const created = await asc('POST', '/v1/appScreenshotSets', {
-            data: {
-              type: 'appScreenshotSets',
-              attributes: { screenshotDisplayType: 'APP_IPHONE_67' },
-              relationships: {
-                appStoreVersionLocalization: {
-                  data: { type: 'appStoreVersionLocalizations', id: loc.id },
-                },
+      let set = (setsRes.data || []).find(
+        (s) => s.attributes.screenshotDisplayType === group.displayType
+      );
+      if (!set) {
+        const created = await asc('POST', '/v1/appScreenshotSets', {
+          data: {
+            type: 'appScreenshotSets',
+            attributes: { screenshotDisplayType: group.displayType },
+            relationships: {
+              appStoreVersionLocalization: {
+                data: { type: 'appStoreVersionLocalizations', id: loc.id },
               },
             },
-          });
-          set = created.data;
-        }
+          },
+        });
+        set = created.data;
+      }
 
-        const existingShots = await asc('GET', `/v1/appScreenshotSets/${set.id}/appScreenshots`);
-        const existingNames = new Set(
-          (existingShots.data || []).map((s) => s.attributes.fileName)
+      const existingShots = await asc('GET', `/v1/appScreenshotSets/${set.id}/appScreenshots`);
+      const existingNames = new Set(
+        (existingShots.data || []).map((s) => s.attributes.fileName)
+      );
+
+      for (const fileName of files) {
+        if (existingNames.has(fileName)) {
+          console.log(
+            `  [SKIP] Screenshot (${group.displayType}) ${loc.attributes.locale}/${fileName} already uploaded`
+          );
+          continue;
+        }
+        const fullPath = path.join(group.dir, fileName);
+        const buf = fs.readFileSync(fullPath);
+        const md5 = crypto.createHash('md5').update(buf).digest('hex');
+
+        const reserve = await asc('POST', '/v1/appScreenshots', {
+          data: {
+            type: 'appScreenshots',
+            attributes: { fileSize: buf.length, fileName },
+            relationships: {
+              appScreenshotSet: { data: { type: 'appScreenshotSets', id: set.id } },
+            },
+          },
+        });
+        await uploadChunks(buf, reserve.data.attributes.uploadOperations);
+        await asc('PATCH', `/v1/appScreenshots/${reserve.data.id}`, {
+          data: {
+            type: 'appScreenshots',
+            id: reserve.data.id,
+            attributes: { uploaded: true, sourceFileChecksum: md5 },
+          },
+        });
+        console.log(
+          `  [OK] Uploaded screenshot (${group.displayType}) ${loc.attributes.locale}/${fileName}`
         );
-
-        for (const fileName of files) {
-          if (existingNames.has(fileName)) {
-            console.log(`  [SKIP] Screenshot ${loc.attributes.locale}/${fileName} already uploaded`);
-            continue;
-          }
-          const fullPath = path.join(shotsDir, fileName);
-          const buf = fs.readFileSync(fullPath);
-          const md5 = crypto.createHash('md5').update(buf).digest('hex');
-
-          const reserve = await asc('POST', '/v1/appScreenshots', {
-            data: {
-              type: 'appScreenshots',
-              attributes: { fileSize: buf.length, fileName },
-              relationships: {
-                appScreenshotSet: { data: { type: 'appScreenshotSets', id: set.id } },
-              },
-            },
-          });
-          await uploadChunks(buf, reserve.data.attributes.uploadOperations);
-          await asc('PATCH', `/v1/appScreenshots/${reserve.data.id}`, {
-            data: {
-              type: 'appScreenshots',
-              id: reserve.data.id,
-              attributes: { uploaded: true, sourceFileChecksum: md5 },
-            },
-          });
-          console.log(`  [OK] Uploaded screenshot ${loc.attributes.locale}/${fileName}`);
-        }
       }
     }
   }
