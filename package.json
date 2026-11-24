@@ -58,5 +58,10 @@
     "version:minor": "node scripts/bump-version.mjs minor",
     "version:major": "node scripts/bump-version.mjs major"
   },
+  "overrides": {
+    "@expo/fingerprint": {
+      "minimatch": "11.0.9"
+    }
+  },
   "private": true
 }
